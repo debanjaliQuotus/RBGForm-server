@@ -420,7 +420,7 @@ const generateExcel = async (req, res) => {
         const cell = row.getCell("cvLink");
         cell.value = {
           text: "View CV",
-          hyperlink: path.join("http://localhost:5000/", user.pdfFile.path),
+          hyperlink: path.join("https://rbgform-server-ss.onrender.com/", user.pdfFile.path),
         };
         cell.font = { color: { argb: "FF0000FF" }, underline: true };
       }
