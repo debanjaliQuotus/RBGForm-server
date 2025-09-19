@@ -7,6 +7,14 @@ const ExcelJS = require('exceljs')
 // Create new user
 const createUser = async (req, res) => {
   try {
+    // Format ctcInLakhs if present and is a number
+    if (req.body.ctcInLakhs !== undefined) {
+      const ctcValue = parseFloat(req.body.ctcInLakhs);
+      if (!isNaN(ctcValue)) {
+        req.body.ctcInLakhs = ctcValue.toFixed(2);
+      }
+    }
+
     // Validate request body
     const { error, value } = validateUser(req.body);
     
@@ -119,9 +127,19 @@ const getAllUsers = async (req, res) => {
 
     const total = await User.countDocuments();
 
+    // Add permanent details to each user
+    const usersWithPermanentDetails = users.map(user => {
+      const userObj = user.toObject();
+      userObj.permanentDetails = {
+        dateOfBirth: userObj.dateOfBirth,
+        gender: userObj.gender
+      };
+      return userObj;
+    });
+
     res.json({
       success: true,
-      data: users,
+      data: usersWithPermanentDetails,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(total / limit),
@@ -169,6 +187,14 @@ const getUserById = async (req, res) => {
 // Update user
 const updateUser = async (req, res) => {
   try {
+    // Format ctcInLakhs if present and is a number
+    if (req.body.ctcInLakhs !== undefined) {
+      const ctcValue = parseFloat(req.body.ctcInLakhs);
+      if (!isNaN(ctcValue)) {
+        req.body.ctcInLakhs = ctcValue.toFixed(2);
+      }
+    }
+
     const { error, value } = validateUser(req.body);
     
     if (error) {
@@ -479,6 +505,47 @@ const generateExcel = async (req, res) => {
 };
 
 
+const addComment = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { comment } = req.body;
+
+    if (!comment || typeof comment !== 'string' || comment.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Comment is required and must be a non-empty string'
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Add comment to comments array
+    user.comments = user.comments || [];
+    user.comments.push(comment.trim());
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Comment added successfully',
+      data: user.comments
+    });
+  } catch (error) {
+    console.error('Error adding comment:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   createUser,
   getAllUsers,
@@ -486,5 +553,6 @@ module.exports = {
   updateUser,
   deleteUser,
   downloadPDF,
-  generateExcel
+  generateExcel,
+  addComment
 };

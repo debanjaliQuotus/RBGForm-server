@@ -214,17 +214,13 @@ const formValidationSchema = Joi.object({
       //'string.empty': 'Department is required'
     }),
 
-  ctcInLakhs: Joi.number()
-    .positive()
-    .precision(2)
-    .max(1000)
+  ctcInLakhs: Joi.string()
+    .pattern(/^\d+(\.\d{2})$/)
     //.required()
     .empty('')
     .optional()
     .messages({
-      'number.base': 'CTC must be a valid number',
-      'number.positive': 'CTC must be a positive number',
-      'number.max': 'CTC cannot exceed 1000 lakhs',
+      'string.pattern.base': 'CTC must be in format like 000.00 (e.g., 005.50 for 5.5 lakhs)',
       //'any.required': 'CTC in lakhs is required'
     }),
 
@@ -270,6 +266,14 @@ const formValidationSchema = Joi.object({
     .optional()
     .messages({
       'string.max': 'Comment 3 cannot exceed 500 characters'
+    }),
+
+  comments: Joi.array()
+    .items(Joi.string().trim().max(500))
+    .optional()
+    .messages({
+      'array.base': 'Comments must be an array',
+      'string.max': 'Each comment cannot exceed 500 characters'
     })
 });
 

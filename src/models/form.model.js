@@ -100,9 +100,20 @@ const userSchema = new mongoose.Schema({
     trim: true
   },
   ctcInLakhs: {
-    type: Number,
+    type: String,
    // required: true,
-    min: 0
+    validate: {
+      validator: function(v) {
+        return /^\d+(\.\d{2})$/.test(v);
+      },
+      message: 'CTC must be in format like 000.00 (e.g., 005.50 for 5.5 lakhs)'
+    },
+    set: function(v) {
+      if (typeof v === 'number') {
+        return v.toFixed(2);
+      }
+      return v;
+    }
   },
   totalExperience: {
     type: Number,
@@ -127,6 +138,11 @@ const userSchema = new mongoose.Schema({
   comment3: {
     type: String,
     trim: true
+  },
+  comments: {
+    type: [String],
+    trim: true,
+    default: []
   }
 }, {
   timestamps: true
