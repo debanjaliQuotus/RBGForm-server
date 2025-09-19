@@ -399,15 +399,15 @@ const generateExcel = async (req, res) => {
       });
     }
 
-    // Create workbook and worksheet
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Users");
 
     // Define columns
     worksheet.columns = [
-      { header: "ID", key: "_id", width: 30 },
+      // ✨ Change 1: Updated the first column to be a serial number instead of the DB ID.
+      { header: "Sr. No.", key: "serialNumber", width: 10 },
       { header: "Uploaded By", key: "uploadedBy", width: 25 },
-      { header: "Date Of Upload", key: "dateOfUpload", width: 25 },
+      { header: "Date Of Upload", key: "dateOfUpload", width: 20 },
       { header: "First Name", key: "firstName", width: 20 },
       { header: "Middle Name", key: "middleName", width: 20 },
       { header: "Last Name", key: "lastName", width: 20 },
@@ -418,35 +418,41 @@ const generateExcel = async (req, res) => {
       { header: "Father Name", key: "fatherName", width: 25 },
       { header: "PAN No", key: "panNo", width: 20 },
       { header: "Date of Birth", key: "dateOfBirth", width: 20 },
-      { header: "Gender", key: "gender", width: 20 },
+      { header: "Gender", key: "gender", width: 15 },
       { header: "Current State", key: "currentState", width: 20 },
       { header: "Current City", key: "currentCity", width: 20 },
       { header: "Preferred State", key: "preferredState", width: 20 },
       { header: "Preferred City", key: "preferredCity", width: 20 },
-      { header: "Current Employer", key: "currentEmployer", width: 20 },
-      { header: "Designation", key: "designation", width: 20 },
-      { header: "Department", key: "department", width: 20 },
+      { header: "Current Employer", key: "currentEmployer", width: 25 },
+      { header: "Designation", key: "designation", width: 25 },
+      { header: "Department", key: "department", width: 25 },
+      { header: "CTC (Lakhs)", key: "ctcInLakhs", width: 15 },
+      { header: "Experience (Yrs)", key: "totalExperience", width: 15 },
       { header: "CV Link", key: "cvLink", width: 40 },
       { header: "Comment1", key: "comment1", width: 40 },
       { header: "Comment2", key: "comment2", width: 40 },
       { header: "Comment3", key: "comment3", width: 40 },
     ];
 
-    // Add rows
-    users.forEach((user) => {
-      
-
-      const row = worksheet.addRow({
+    // Add rows with corrected data and hyperlinks
+    users.forEach((user, index) => {
+      const rowData = {
+        // ✨ Change 2: Added the serial number using the loop's index.
+        serialNumber: index + 1,
         ...user,
-        cvLink: user.pdfFile?.path || "",
-      });
+        dateOfUpload: user.dateOfUpload ? new Date(user.dateOfUpload).toLocaleDateString('en-IN') : '',
+        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('en-IN') : '',
+      };
 
-      // CV hyperlink
-      if (user.pdfFile?.path) {
+      const row = worksheet.addRow(rowData);
+
+      // Correctly build the hyperlink URL
+      if (user.pdfFile && user.pdfFile.filename) {
         const cell = row.getCell("cvLink");
+        const serverUrl = process.env.VITE_BACKEND_URI || 'https://rbgform-server-ss.onrender.com';
         cell.value = {
-          text: "View CV",
-          hyperlink: path.join("https://rbgform-server-ss.onrender.com/", user.pdfFile.path),
+          text: "Download CV",
+          hyperlink: `${serverUrl}/uploads/${user.pdfFile.filename}`
         };
         cell.font = { color: { argb: "FF0000FF" }, underline: true };
       }
@@ -456,51 +462,35 @@ const generateExcel = async (req, res) => {
     worksheet.getRow(1).eachCell((cell) => {
       cell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
       cell.alignment = { horizontal: "center", vertical: "middle" };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "4472C4" }, // blue header
-      };
-      cell.border = {
-        top: { style: "thin" },
-        left: { style: "thin" },
-        bottom: { style: "thin" },
-        right: { style: "thin" },
-      };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "4472C4" } };
+      cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
     });
 
-    // Style all rows (borders + alignment + wrapping)
-    worksheet.eachRow((row) => {
-      row.eachCell((cell) => {
-        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-        cell.border = {
-          top: { style: "thin" },
-          left: { style: "thin" },
-          bottom: { style: "thin" },
-          right: { style: "thin" },
-        };
-      });
-      row.height = 25;
+    // Style all data rows
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.eachCell((cell) => {
+          cell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+          cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+        });
+      }
     });
 
-    // Freeze header row
-    worksheet.views = [{ state: "frozen", ySplit: 1 }];
-
-    // Send Excel file
+    // Send Excel file as response
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-    res.setHeader("Content-Disposition", "attachment; filename=users.xlsx");
+    res.setHeader("Content-Disposition", "attachment; filename=All_Users_Data.xlsx");
 
     await workbook.xlsx.write(res);
     res.end();
+    
   } catch (error) {
-    console.error("Error generating Excel:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    console.error("Error generating Excel file:", error);
+    if (!res.headersSent) {
+      res.status(500).send("An error occurred while generating the Excel file.");
+    }
   }
 };
 
@@ -546,6 +536,109 @@ const addComment = async (req, res) => {
   }
 };
 
+// Generate Excel for a SINGLE user with a clickable CV link
+const generateSingleUserExcel = async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const user = await User.findById(userId).lean();
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Calculate the user's serial number
+        const userCountBefore = await User.countDocuments({
+            dateOfUpload: { $lt: user.dateOfUpload }
+        });
+        const serialNumber = userCountBefore + 1;
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("User Details");
+
+        // Define a structured layout
+        const data = [
+            // ✨ "Database ID" field has been removed.
+            { field: "Sr. No.", value: serialNumber },
+            { field: "Uploaded By", value: user.uploadedBy },
+            { field: "Date Of Upload", value: user.dateOfUpload ? new Date(user.dateOfUpload).toLocaleDateString('en-IN') : 'N/A' },
+            { field: "First Name", value: user.firstName },
+            { field: "Middle Name", value: user.middleName },
+            { field: "Last Name", value: user.lastName },
+            { field: "Email", value: user.mailId },
+            { field: "Alternate Email", value: user.alternateMailId },
+            { field: "Contact No", value: user.contactNo },
+            { field: "Alternate Contact No", value: user.alternateContactNo },
+            { field: "Father Name", value: user.fatherName },
+            { field: "PAN No", value: user.panNo },
+            { field: "Date of Birth", value: user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('en-IN') : 'N/A' },
+            { field: "Gender", value: user.gender },
+            { field: "Current State", value: user.currentState },
+            { field: "Current City", value: user.currentCity },
+            { field: "Preferred State", value: user.preferredState },
+            { field: "Preferred City", value: user.preferredCity },
+            { field: "Current Employer", value: user.currentEmployer },
+            { field: "Designation", value: user.designation },
+            { field: "Department", value: user.department },
+            { field: "Comment 1", value: user.comment1 },
+            { field: "Comment 2", value: user.comment2 },
+            { field: "Comment 3", value: user.comment3 },
+            { 
+                field: "CV Link", 
+                value: (user.pdfFile && user.pdfFile.filename) 
+                    ? {
+                        text: 'Download Resume',
+                        hyperlink: `${process.env.VITE_BACKEND_URI || 'https://rbgform-server-ss.onrender.com'}/uploads/${user.pdfFile.filename}`
+                      }
+                    : 'No CV Uploaded'
+            },
+        ];
+        
+        // Add headers
+        worksheet.columns = [
+            { header: 'Field', key: 'field', width: 30 },
+            { header: 'Value', key: 'value', width: 50 }
+        ];
+
+        // Add the data rows
+        data.forEach(item => {
+            const row = worksheet.addRow(item);
+            if (item.value && item.value.hyperlink) {
+                const cell = row.getCell('value');
+                cell.font = { color: { argb: 'FF0000FF' }, underline: true };
+            }
+        });
+
+        // Style the header row
+        worksheet.getRow(1).eachCell((cell) => {
+            cell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
+            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "4472C4" } };
+            cell.alignment = { vertical: 'middle' };
+        });
+
+        // Set filename
+        const filename = `user_${user.firstName || 'details'}_${user._id}.xlsx`;
+
+        res.setHeader(
+            "Content-Type",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        );
+        res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (error) {
+        console.error("Error generating single user Excel:", error);
+        res.status(500).json({
+            success: false,
+            message: "Internal server error",
+        });
+    }
+};
+
 module.exports = {
   createUser,
   getAllUsers,
@@ -554,5 +647,6 @@ module.exports = {
   deleteUser,
   downloadPDF,
   generateExcel,
-  addComment
+  addComment,
+  generateSingleUserExcel
 };

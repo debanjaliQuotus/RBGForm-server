@@ -4,7 +4,8 @@ const path = require('path');
 
 const connectDB = require('./src/config/db.config');
 const formRoutes = require('./src/routes/form.routes');
-//const userRoutes = require('./src/routes/user.route')
+const userRoutes = require('./src/routes/user.routes');
+const { createDefaultUsers } = require('./src/controller/user.controller');
 
 require('dotenv').config();
 
@@ -12,6 +13,7 @@ const app = express();
 const PORT = process.env.PORT;
 
 connectDB();
+createDefaultUsers();
 
 app.use(cors());
 app.use(express.json());
@@ -20,7 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/forms', formRoutes);
-//app.use('/user', userRoutes)
+app.use('/users', userRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');

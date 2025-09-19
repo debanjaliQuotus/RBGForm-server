@@ -1,15 +1,34 @@
 const express = require('express');
-const Error = require('../middleware/error');
-const { createUser, getAllUsers, getUserById, updateUser, deleteUser, downloadPDF, generateExcel, addComment } = require('../controller/form.controller');
+const { 
+    createUser, 
+    getAllUsers, 
+    getUserById, 
+    updateUser, 
+    deleteUser, 
+    downloadPDF, 
+    generateExcel, 
+    addComment, 
+    generateSingleUserExcel 
+} = require('../controller/form.controller');
 const upload = require('../middleware/upload');
+
 const router = express.Router();
 
-router.post('/', upload.single('pdfFile'),Error, createUser);
+// --- General Routes ---
+router.post('/', upload.single('pdfFile'), createUser);
 router.get('/', getAllUsers);
+
+// --- Specific/Static Routes (Must come BEFORE dynamic routes) ---
+// This route is for exporting ALL users' data
+router.get('/download/export-excel', generateExcel);
+
+// --- Dynamic Routes (use :id) ---
 router.get('/:id', getUserById);
-router.put('/:id', upload.single('pdfFile'), Error, updateUser);
+router.put('/:id', upload.single('pdfFile'), updateUser);
 router.delete('/:id', deleteUser);
 router.get('/:id/download-pdf', downloadPDF);
-router.get('/download/export-excel', generateExcel);
+// This route is for exporting a SINGLE user's data
+router.get('/:id/export-excel', generateSingleUserExcel); 
 router.post('/:id/comments', addComment);
+
 module.exports = router;
