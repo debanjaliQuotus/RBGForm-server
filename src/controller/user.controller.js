@@ -241,6 +241,25 @@ const loginUser = async (req, res) => {
   }
 };
 
+// Logout user
+const logoutUser = async (req, res) => {
+  try {
+    // In a stateless authentication system, logout is handled client-side
+    // by clearing any stored tokens or session data
+    res.json({
+      success: true,
+      message: 'Logout successful'
+    });
+
+  } catch (error) {
+    console.error('Error logging out user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   createDefaultUsers,
   createUser,
@@ -248,5 +267,6 @@ module.exports = {
   getUserById,
   updateUser,
   deleteUser,
-  loginUser
+  loginUser,
+  logoutUser
 };
