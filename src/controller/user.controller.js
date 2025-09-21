@@ -1,6 +1,6 @@
 const User = require('../models/user.model');
 
-// Create default admin and sub-admin users if they don't exist
+// Create default admin, sub-admin, and sub_user users if they don't exist
 const createDefaultUsers = async () => {
   try {
     const adminExists = await User.findOne({ email:process.env.DEFAULT_ADMIN_EMAIL });
@@ -23,6 +23,17 @@ const createDefaultUsers = async () => {
       });
       await subAdmin.save();
       console.log('Default sub-admin user created');
+    }
+
+    const subUserExists = await User.findOne({ email: process.env.DEFAULT_SUB_USER_EMAIL });
+    if (!subUserExists) {
+      const subUser = new User({
+        email: process.env.DEFAULT_SUB_USER_EMAIL,
+        password: process.env.DEFAULT_SUB_USER_PASSWORD, // This will be hashed by the pre-save hook
+        role: 'sub-user'
+      });
+      await subUser.save();
+      console.log('Default sub_user created');
     }
   } catch (error) {
     console.error('Error creating default users:', error);

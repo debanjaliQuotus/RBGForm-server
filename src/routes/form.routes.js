@@ -1,14 +1,14 @@
 const express = require('express');
-const { 
-    createUser, 
-    getAllUsers, 
-    getUserById, 
-    updateUser, 
-    deleteUser, 
-    downloadPDF, 
-    generateExcel, 
-    addComment, 
-    generateSingleUserExcel 
+const {
+    createUser,
+    getAllUsers,
+    getUserById,
+    updateUser,
+    deleteUser,
+    downloadPDF,
+    generateExcel,
+    addComment,
+    generateSingleUserExcel
 } = require('../controller/form.controller');
 const upload = require('../middleware/upload');
 

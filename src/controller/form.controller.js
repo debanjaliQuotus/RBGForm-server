@@ -112,20 +112,152 @@ const createUser = async (req, res) => {
   }
 };
 
-// Get all users with pagination
+// Get all users with pagination and filtering
 const getAllUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const users = await User.find()
+    // Build filter object
+    const filter = {};
+
+    // Text search across name, email, and phone
+    if (req.query.search) {
+      const searchRegex = new RegExp(req.query.search, 'i');
+      filter.$or = [
+        { firstName: searchRegex },
+        { middleName: searchRegex },
+        { lastName: searchRegex },
+        { mailId: searchRegex },
+        { alternateMailId: searchRegex },
+        { contactNo: searchRegex },
+        { alternateContactNo: searchRegex },
+        { fatherName: searchRegex },
+        { panNo: searchRegex }
+      ];
+    }
+
+    // Gender filter
+    if (req.query.gender && req.query.gender !== 'All Genders') {
+      filter.gender = req.query.gender;
+    }
+
+    // Experience filter (range)
+    if (req.query.experience && req.query.experience !== 'All Experience') {
+      const expValue = req.query.experience;
+      if (expValue.includes('+')) {
+        // Handle "10+" years case
+        const minExp = parseInt(expValue.replace('+', ''));
+        filter.totalExperience = { $gte: minExp };
+      } else if (expValue.includes('-')) {
+        // Handle "5-10" years case
+        const [minExp, maxExp] = expValue.split('-').map(val => parseInt(val.trim()));
+        filter.totalExperience = { $gte: minExp, $lte: maxExp };
+      } else {
+        // Handle exact experience
+        filter.totalExperience = parseInt(expValue);
+      }
+    }
+
+    // CTC filter (range)
+    if (req.query.ctc && req.query.ctc !== 'All CTC') {
+      const ctcValue = req.query.ctc;
+      if (ctcValue.includes('+')) {
+        // Handle "10+" lakhs case
+        const minCTC = parseFloat(ctcValue.replace('+', ''));
+        filter.ctcInLakhs = { $gte: minCTC.toString() };
+      } else if (ctcValue.includes('-')) {
+        // Handle "5-10" lakhs case
+        const [minCTC, maxCTC] = ctcValue.split('-').map(val => parseFloat(val.trim()));
+        filter.ctcInLakhs = {
+          $gte: minCTC.toString(),
+          $lte: maxCTC.toString()
+        };
+      } else {
+        // Handle exact CTC
+        filter.ctcInLakhs = ctcValue;
+      }
+    }
+
+    // Location filters
+    if (req.query.currentState && req.query.currentState !== 'Current state') {
+      filter.currentState = req.query.currentState;
+    }
+
+    if (req.query.preferredState && req.query.preferredState !== 'Preferred state') {
+      filter.preferredState = req.query.preferredState;
+    }
+
+    // Job-related filters
+    if (req.query.designation && req.query.designation !== 'Designation') {
+      filter.designation = req.query.designation;
+    }
+
+    if (req.query.department && req.query.department !== 'Department') {
+      filter.department = req.query.department;
+    }
+
+    // Current employer filter
+    if (req.query.currentEmployer) {
+      filter.currentEmployer = new RegExp(req.query.currentEmployer, 'i');
+    }
+
+    // Date range filters
+    if (req.query.startDate || req.query.endDate) {
+      filter.dateOfUpload = {};
+      if (req.query.startDate) {
+        filter.dateOfUpload.$gte = new Date(req.query.startDate);
+      }
+      if (req.query.endDate) {
+        filter.dateOfUpload.$lte = new Date(req.query.endDate);
+      }
+    }
+
+    // Uploaded by filter
+    if (req.query.uploadedBy) {
+      filter.uploadedBy = new RegExp(req.query.uploadedBy, 'i');
+    }
+
+    const users = await User.find(filter)
       .select('-pdfFile.path') // Exclude file path from response
       .sort({ dateOfUpload: -1 })
       .skip(skip)
       .limit(limit);
 
-    const total = await User.countDocuments();
+    const total = await User.countDocuments(filter);
+
+    // Get filter options for dropdowns
+    const [
+      genders,
+      currentStates,
+      preferredStates,
+      designations,
+      departments,
+      currentEmployers
+    ] = await Promise.all([
+      User.distinct('gender'),
+      User.distinct('currentState'),
+      User.distinct('preferredState'),
+      User.distinct('designation'),
+      User.distinct('department'),
+      User.distinct('currentEmployer')
+    ]);
+
+    // Get experience range options
+    const experiences = await User.distinct('totalExperience');
+    const experienceOptions = [
+      'All Experience',
+      ...experiences.filter(exp => exp != null).sort((a, b) => a - b).map(exp => `${exp}`),
+      ...experiences.filter(exp => exp != null && exp >= 10).length > 0 ? [`10+`] : []
+    ];
+
+    // Get CTC range options
+    const ctcValues = await User.distinct('ctcInLakhs');
+    const ctcOptions = [
+      'All CTC',
+      ...ctcValues.filter(ctc => ctc != null).sort((a, b) => parseFloat(a) - parseFloat(b))
+    ];
 
     // Add permanent details to each user
     const usersWithPermanentDetails = users.map(user => {
@@ -146,6 +278,20 @@ const getAllUsers = async (req, res) => {
         totalUsers: total,
         hasNext: page < Math.ceil(total / limit),
         hasPrev: page > 1
+      },
+      filters: {
+        appliedFilters: req.query,
+        totalFilteredResults: total,
+        filterOptions: {
+          genders: ['All Genders', ...genders.filter(g => g != null)],
+          currentStates: ['Current state', ...currentStates.filter(s => s != null).sort()],
+          preferredStates: ['Preferred state', ...preferredStates.filter(s => s != null).sort()],
+          designations: ['Designation', ...designations.filter(d => d != null).sort()],
+          departments: ['Department', ...departments.filter(d => d != null).sort()],
+          currentEmployers: [...currentEmployers.filter(e => e != null).sort()],
+          experiences: [...new Set(experienceOptions)], // Remove duplicates
+          ctcOptions: [...new Set(ctcOptions)] // Remove duplicates
+        }
       }
     });
 
@@ -390,17 +536,117 @@ const downloadPDF = async (req, res) => {
 
 const generateExcel = async (req, res) => {
   try {
-    const users = await User.find().lean();
+    // Build filter object (same logic as getAllUsers)
+    const filter = {};
+
+    // Text search across name, email, and phone
+    if (req.query.search) {
+      const searchRegex = new RegExp(req.query.search, 'i');
+      filter.$or = [
+        { firstName: searchRegex },
+        { middleName: searchRegex },
+        { lastName: searchRegex },
+        { mailId: searchRegex },
+        { alternateMailId: searchRegex },
+        { contactNo: searchRegex },
+        { alternateContactNo: searchRegex },
+        { fatherName: searchRegex },
+        { panNo: searchRegex }
+      ];
+    }
+
+    // Gender filter
+    if (req.query.gender && req.query.gender !== 'All Genders') {
+      filter.gender = req.query.gender;
+    }
+
+    // Experience filter (range)
+    if (req.query.experience && req.query.experience !== 'All Experience') {
+      const expValue = req.query.experience;
+      if (expValue.includes('+')) {
+        // Handle "10+" years case
+        const minExp = parseInt(expValue.replace('+', ''));
+        filter.totalExperience = { $gte: minExp };
+      } else if (expValue.includes('-')) {
+        // Handle "5-10" years case
+        const [minExp, maxExp] = expValue.split('-').map(val => parseInt(val.trim()));
+        filter.totalExperience = { $gte: minExp, $lte: maxExp };
+      } else {
+        // Handle exact experience
+        filter.totalExperience = parseInt(expValue);
+      }
+    }
+
+    // CTC filter (range)
+    if (req.query.ctc && req.query.ctc !== 'All CTC') {
+      const ctcValue = req.query.ctc;
+      if (ctcValue.includes('+')) {
+        // Handle "10+" lakhs case
+        const minCTC = parseFloat(ctcValue.replace('+', ''));
+        filter.ctcInLakhs = { $gte: minCTC.toString() };
+      } else if (ctcValue.includes('-')) {
+        // Handle "5-10" lakhs case
+        const [minCTC, maxCTC] = ctcValue.split('-').map(val => parseFloat(val.trim()));
+        filter.ctcInLakhs = {
+          $gte: minCTC.toString(),
+          $lte: maxCTC.toString()
+        };
+      } else {
+        // Handle exact CTC
+        filter.ctcInLakhs = ctcValue;
+      }
+    }
+
+    // Location filters
+    if (req.query.currentState && req.query.currentState !== 'Current state') {
+      filter.currentState = req.query.currentState;
+    }
+
+    if (req.query.preferredState && req.query.preferredState !== 'Preferred state') {
+      filter.preferredState = req.query.preferredState;
+    }
+
+    // Job-related filters
+    if (req.query.designation && req.query.designation !== 'Designation') {
+      filter.designation = req.query.designation;
+    }
+
+    if (req.query.department && req.query.department !== 'Department') {
+      filter.department = req.query.department;
+    }
+
+    // Current employer filter
+    if (req.query.currentEmployer) {
+      filter.currentEmployer = new RegExp(req.query.currentEmployer, 'i');
+    }
+
+    // Date range filters
+    if (req.query.startDate || req.query.endDate) {
+      filter.dateOfUpload = {};
+      if (req.query.startDate) {
+        filter.dateOfUpload.$gte = new Date(req.query.startDate);
+      }
+      if (req.query.endDate) {
+        filter.dateOfUpload.$lte = new Date(req.query.endDate);
+      }
+    }
+
+    // Uploaded by filter
+    if (req.query.uploadedBy) {
+      filter.uploadedBy = new RegExp(req.query.uploadedBy, 'i');
+    }
+
+    const users = await User.find(filter).lean();
 
     if (!users || users.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No users found to export",
+        message: "No users found matching the applied filters to export",
       });
     }
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Users");
+    const worksheet = workbook.addWorksheet("Filtered Users");
 
     // Define columns
     worksheet.columns = [
@@ -477,11 +723,14 @@ const generateExcel = async (req, res) => {
     });
 
     // Send Excel file as response
+    const appliedFilters = Object.keys(req.query).length > 0 ? "Filtered_" : "";
+    const recordCount = users.length > 0 ? `${users.length}_` : "";
+    const filename = `${appliedFilters}${recordCount}Users_Data.xlsx`;
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
-    res.setHeader("Content-Disposition", "attachment; filename=All_Users_Data.xlsx");
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
 
     await workbook.xlsx.write(res);
     res.end();
@@ -638,6 +887,8 @@ const generateSingleUserExcel = async (req, res) => {
         });
     }
 };
+
+
 
 module.exports = {
   createUser,
