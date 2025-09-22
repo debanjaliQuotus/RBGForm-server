@@ -1,4 +1,6 @@
 const User = require('../models/user.model');
+const emailService = require('../services/email.service');
+const crypto = require('crypto');
 
 // Create default admin, sub-admin, and sub_user users if they don't exist
 const createDefaultUsers = async () => {
@@ -271,6 +273,109 @@ const logoutUser = async (req, res) => {
   }
 };
 
+// Request password reset
+const requestPasswordReset = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User with this email does not exist'
+      });
+    }
+
+    // Create password reset token
+    const resetToken = user.createPasswordResetToken();
+    await user.save();
+
+    // Send password reset email
+    try {
+      await emailService.sendPasswordResetEmail(user.email, resetToken);
+
+      res.json({
+        success: true,
+        message: 'Password reset email sent successfully. Please check your email.'
+      });
+    } catch (emailError) {
+      // Reset the token if email fails
+      user.passwordResetToken = null;
+      user.passwordResetExpires = null;
+      await user.save();
+
+      console.error('Error sending email:', emailError);
+      return res.status(500).json({
+        success: false,
+        message: 'Error sending password reset email. Please try again later.'
+      });
+    }
+
+  } catch (error) {
+    console.error('Error requesting password reset:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Reset password with token
+const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    // Find user with valid reset token
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired password reset token'
+      });
+    }
+
+    // Check if password was changed after token was issued
+    if (user.passwordChangedAt && user.isPasswordResetTokenValid(token)) {
+      const tokenIssuedAt = new Date(user.passwordResetExpires.getTime() - 7 * 24 * 60 * 60 * 1000);
+      if (user.passwordChangedAt > tokenIssuedAt) {
+        return res.status(400).json({
+          success: false,
+          message: 'Password reset token has expired due to recent password change'
+        });
+      }
+    }
+
+    // Update password
+    user.password = newPassword;
+    user.passwordResetToken = null;
+    user.passwordResetExpires = null;
+    user.passwordChangedAt = Date.now();
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully'
+    });
+
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   createDefaultUsers,
   createUser,
@@ -279,5 +384,7 @@ module.exports = {
   updateUser,
   deleteUser,
   loginUser,
-  logoutUser
+  logoutUser,
+  requestPasswordReset,
+  resetPassword
 };

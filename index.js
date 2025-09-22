@@ -5,6 +5,7 @@ const path = require('path');
 const connectDB = require('./src/config/db.config');
 const formRoutes = require('./src/routes/form.routes');
 const userRoutes = require('./src/routes/user.routes');
+const adminRoutes = require('./src/routes/admin.routes');
 const { createDefaultUsers } = require('./src/controller/user.controller');
 
 require('dotenv').config();
@@ -23,6 +24,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/forms', formRoutes);
 app.use('/users', userRoutes);
+app.use('/admin', adminRoutes);
 
 app.get('/', (req, res) => {
   res.send('API is running...');

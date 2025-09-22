@@ -6,7 +6,9 @@ const {
   updateUser,
   deleteUser,
   loginUser,
-  logoutUser
+  logoutUser,
+  requestPasswordReset,
+  resetPassword
 } = require('../controller/user.controller');
 
 const router = express.Router();
@@ -19,5 +21,9 @@ router.get('/', getAllUsers);
 router.get('/:id', getUserById);
 router.put('/:id', updateUser);
 router.delete('/:id', deleteUser);
+
+// Password reset routes
+router.post('/forgot-password', requestPasswordReset);
+router.post('/reset-password', resetPassword);
 
 module.exports = router;

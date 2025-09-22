@@ -3,6 +3,7 @@ const {
     createUser,
     getAllUsers,
     getUserById,
+    getUserComments,
     updateUser,
     deleteUser,
     downloadPDF,
@@ -28,7 +29,8 @@ router.put('/:id', upload.single('pdfFile'), updateUser);
 router.delete('/:id', deleteUser);
 router.get('/:id/download-pdf', downloadPDF);
 // This route is for exporting a SINGLE user's data
-router.get('/:id/export-excel', generateSingleUserExcel); 
+router.get('/:id/export-excel', generateSingleUserExcel);
 router.post('/:id/comments', addComment);
+router.get('/:id/comments', getUserComments);
 
 module.exports = router;

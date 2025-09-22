@@ -1,8 +1,9 @@
-const User = require('../models/form.model');
-const { validateUser } = require('../validation/form.validation');
-const path = require('path');
-const fs = require('fs').promises;
-const ExcelJS = require('exceljs')
+const User = require("../models/form.model");
+const { validateUser } = require("../validation/form.validation");
+const path = require("path");
+const fs = require("fs").promises;
+const ExcelJS = require("exceljs");
+const mongoose = require("mongoose");
 
 // Create new user
 const createUser = async (req, res) => {
@@ -17,33 +18,30 @@ const createUser = async (req, res) => {
 
     // Validate request body
     const { error, value } = validateUser(req.body);
-    
+
     if (error) {
       // If file was uploaded but validation failed, delete the file
       if (req.file) {
         try {
           await fs.unlink(req.file.path);
         } catch (unlinkError) {
-          console.error('Error deleting uploaded file:', unlinkError);
+          console.error("Error deleting uploaded file:", unlinkError);
         }
       }
-      
+
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors: error.details.map(detail => ({
+        message: "Validation error",
+        errors: error.details.map((detail) => ({
           field: detail.path[0],
-          message: detail.message
-        }))
+          message: detail.message,
+        })),
       });
     }
 
     // Check if user with same email or PAN already exists
     const existingUser = await User.findOne({
-      $or: [
-        { mailId: value.mailId },
-        { panNo: value.panNo }
-      ]
+      $or: [{ mailId: value.mailId }, { panNo: value.panNo }],
     });
 
     if (existingUser) {
@@ -52,13 +50,13 @@ const createUser = async (req, res) => {
         try {
           await fs.unlink(req.file.path);
         } catch (unlinkError) {
-          console.error('Error deleting uploaded file:', unlinkError);
+          console.error("Error deleting uploaded file:", unlinkError);
         }
       }
 
       return res.status(409).json({
         success: false,
-        message: 'User with this email or PAN number already exists'
+        message: "User with this email or PAN number already exists",
       });
     }
 
@@ -72,7 +70,7 @@ const createUser = async (req, res) => {
         originalName: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        path: req.file.path
+        path: req.file.path,
       };
     }
 
@@ -82,32 +80,31 @@ const createUser = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'User created successfully',
+      message: "User created successfully",
       data: {
         id: savedUser._id,
         firstName: savedUser.firstName,
         lastName: savedUser.lastName,
         mailId: savedUser.mailId,
-        dateOfUpload: savedUser.dateOfUpload
-      }
+        dateOfUpload: savedUser.dateOfUpload,
+      },
     });
-
   } catch (error) {
-    console.error('Error creating user:', error);
-    
+    console.error("Error creating user:", error);
+
     // Delete uploaded file if there was an error
     if (req.file) {
       try {
         await fs.unlink(req.file.path);
       } catch (unlinkError) {
-        console.error('Error deleting uploaded file:', unlinkError);
+        console.error("Error deleting uploaded file:", unlinkError);
       }
     }
 
     res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
@@ -124,7 +121,7 @@ const getAllUsers = async (req, res) => {
 
     // Text search across name, email, and phone
     if (req.query.search) {
-      const searchRegex = new RegExp(req.query.search, 'i');
+      const searchRegex = new RegExp(req.query.search, "i");
       filter.$or = [
         { firstName: searchRegex },
         { middleName: searchRegex },
@@ -134,25 +131,27 @@ const getAllUsers = async (req, res) => {
         { contactNo: searchRegex },
         { alternateContactNo: searchRegex },
         { fatherName: searchRegex },
-        { panNo: searchRegex }
+        { panNo: searchRegex },
       ];
     }
 
     // Gender filter
-    if (req.query.gender && req.query.gender !== 'All Genders') {
+    if (req.query.gender && req.query.gender !== "All Genders") {
       filter.gender = req.query.gender;
     }
 
     // Experience filter (range)
-    if (req.query.experience && req.query.experience !== 'All Experience') {
+    if (req.query.experience && req.query.experience !== "All Experience") {
       const expValue = req.query.experience;
-      if (expValue.includes('+')) {
+      if (expValue.includes("+")) {
         // Handle "10+" years case
-        const minExp = parseInt(expValue.replace('+', ''));
+        const minExp = parseInt(expValue.replace("+", ""));
         filter.totalExperience = { $gte: minExp };
-      } else if (expValue.includes('-')) {
+      } else if (expValue.includes("-")) {
         // Handle "5-10" years case
-        const [minExp, maxExp] = expValue.split('-').map(val => parseInt(val.trim()));
+        const [minExp, maxExp] = expValue
+          .split("-")
+          .map((val) => parseInt(val.trim()));
         filter.totalExperience = { $gte: minExp, $lte: maxExp };
       } else {
         // Handle exact experience
@@ -161,18 +160,20 @@ const getAllUsers = async (req, res) => {
     }
 
     // CTC filter (range)
-    if (req.query.ctc && req.query.ctc !== 'All CTC') {
+    if (req.query.ctc && req.query.ctc !== "All CTC") {
       const ctcValue = req.query.ctc;
-      if (ctcValue.includes('+')) {
+      if (ctcValue.includes("+")) {
         // Handle "10+" lakhs case
-        const minCTC = parseFloat(ctcValue.replace('+', ''));
+        const minCTC = parseFloat(ctcValue.replace("+", ""));
         filter.ctcInLakhs = { $gte: minCTC.toString() };
-      } else if (ctcValue.includes('-')) {
+      } else if (ctcValue.includes("-")) {
         // Handle "5-10" lakhs case
-        const [minCTC, maxCTC] = ctcValue.split('-').map(val => parseFloat(val.trim()));
+        const [minCTC, maxCTC] = ctcValue
+          .split("-")
+          .map((val) => parseFloat(val.trim()));
         filter.ctcInLakhs = {
           $gte: minCTC.toString(),
-          $lte: maxCTC.toString()
+          $lte: maxCTC.toString(),
         };
       } else {
         // Handle exact CTC
@@ -181,26 +182,29 @@ const getAllUsers = async (req, res) => {
     }
 
     // Location filters
-    if (req.query.currentState && req.query.currentState !== 'Current state') {
+    if (req.query.currentState && req.query.currentState !== "Current state") {
       filter.currentState = req.query.currentState;
     }
 
-    if (req.query.preferredState && req.query.preferredState !== 'Preferred state') {
+    if (
+      req.query.preferredState &&
+      req.query.preferredState !== "Preferred state"
+    ) {
       filter.preferredState = req.query.preferredState;
     }
 
     // Job-related filters
-    if (req.query.designation && req.query.designation !== 'Designation') {
+    if (req.query.designation && req.query.designation !== "Designation") {
       filter.designation = req.query.designation;
     }
 
-    if (req.query.department && req.query.department !== 'Department') {
+    if (req.query.department && req.query.department !== "Department") {
       filter.department = req.query.department;
     }
 
     // Current employer filter
     if (req.query.currentEmployer) {
-      filter.currentEmployer = new RegExp(req.query.currentEmployer, 'i');
+      filter.currentEmployer = new RegExp(req.query.currentEmployer, "i");
     }
 
     // Date range filters
@@ -216,11 +220,11 @@ const getAllUsers = async (req, res) => {
 
     // Uploaded by filter
     if (req.query.uploadedBy) {
-      filter.uploadedBy = new RegExp(req.query.uploadedBy, 'i');
+      filter.uploadedBy = new RegExp(req.query.uploadedBy, "i");
     }
 
     const users = await User.find(filter)
-      .select('-pdfFile.path') // Exclude file path from response
+      .select("-pdfFile.path") // Exclude file path from response
       .sort({ dateOfUpload: -1 })
       .skip(skip)
       .limit(limit);
@@ -234,37 +238,47 @@ const getAllUsers = async (req, res) => {
       preferredStates,
       designations,
       departments,
-      currentEmployers
+      currentEmployers,
     ] = await Promise.all([
-      User.distinct('gender'),
-      User.distinct('currentState'),
-      User.distinct('preferredState'),
-      User.distinct('designation'),
-      User.distinct('department'),
-      User.distinct('currentEmployer')
+      User.distinct("gender"),
+      User.distinct("currentState"),
+      User.distinct("preferredState"),
+      User.distinct("designation"),
+      User.distinct("department"),
+      User.distinct("currentEmployer"),
     ]);
 
     // Get experience range options
-    const experiences = await User.distinct('totalExperience');
-    const experienceOptions = [
-      'All Experience',
-      ...experiences.filter(exp => exp != null).sort((a, b) => a - b).map(exp => `${exp}`),
-      ...experiences.filter(exp => exp != null && exp >= 10).length > 0 ? [`10+`] : []
-    ];
+    const experiences = await User.distinct("totalExperience");
+    const minExp = Math.min(...experiences.filter((e) => e != null));
+    const maxExp = Math.max(...experiences.filter((e) => e != null));
+    let experienceOptions = ["All Experience"];
+
+    // Generate ranges like 0-1, 1-2, 2-3, ...
+    for (let i = minExp; i < maxExp; i++) {
+      experienceOptions.push(`${i}-${i + 1}`);
+    }
+
+    // Optionally add a "10+" or similar for high experience
+    if (maxExp >= 10) {
+      experienceOptions.push(`${maxExp}+`);
+    }
 
     // Get CTC range options
-    const ctcValues = await User.distinct('ctcInLakhs');
+    const ctcValues = await User.distinct("ctcInLakhs");
     const ctcOptions = [
-      'All CTC',
-      ...ctcValues.filter(ctc => ctc != null).sort((a, b) => parseFloat(a) - parseFloat(b))
+      "All CTC",
+      ...ctcValues
+        .filter((ctc) => ctc != null)
+        .sort((a, b) => parseFloat(a) - parseFloat(b)),
     ];
 
     // Add permanent details to each user
-    const usersWithPermanentDetails = users.map(user => {
+    const usersWithPermanentDetails = users.map((user) => {
       const userObj = user.toObject();
       userObj.permanentDetails = {
         dateOfBirth: userObj.dateOfBirth,
-        gender: userObj.gender
+        gender: userObj.gender,
       };
       return userObj;
     });
@@ -277,29 +291,42 @@ const getAllUsers = async (req, res) => {
         totalPages: Math.ceil(total / limit),
         totalUsers: total,
         hasNext: page < Math.ceil(total / limit),
-        hasPrev: page > 1
+        hasPrev: page > 1,
       },
       filters: {
         appliedFilters: req.query,
         totalFilteredResults: total,
         filterOptions: {
-          genders: ['All Genders', ...genders.filter(g => g != null)],
-          currentStates: ['Current state', ...currentStates.filter(s => s != null).sort()],
-          preferredStates: ['Preferred state', ...preferredStates.filter(s => s != null).sort()],
-          designations: ['Designation', ...designations.filter(d => d != null).sort()],
-          departments: ['Department', ...departments.filter(d => d != null).sort()],
-          currentEmployers: [...currentEmployers.filter(e => e != null).sort()],
+          genders: ["All Genders", ...genders.filter((g) => g != null)],
+          currentStates: [
+            "Current state",
+            ...currentStates.filter((s) => s != null).sort(),
+          ],
+          preferredStates: [
+            "Preferred state",
+            ...preferredStates.filter((s) => s != null).sort(),
+          ],
+          designations: [
+            "Designation",
+            ...designations.filter((d) => d != null).sort(),
+          ],
+          departments: [
+            "Department",
+            ...departments.filter((d) => d != null).sort(),
+          ],
+          currentEmployers: [
+            ...currentEmployers.filter((e) => e != null).sort(),
+          ],
           experiences: [...new Set(experienceOptions)], // Remove duplicates
-          ctcOptions: [...new Set(ctcOptions)] // Remove duplicates
-        }
-      }
+          ctcOptions: [...new Set(ctcOptions)], // Remove duplicates
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error("Error fetching users:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 };
@@ -307,26 +334,59 @@ const getAllUsers = async (req, res) => {
 // Get user by ID
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-pdfFile.path');
-    
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format",
+      });
+    }
+
+    const user = await User.findById(req.params.id).select("-pdfFile.path");
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     res.json({
       success: true,
-      data: user
+      data: user,
     });
-
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error("Error fetching user:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
+  }
+};
+
+// Get comments by user ID
+const getUserComments = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        comments: user.comments,
+        userName: `${user.firstName} ${user.lastName}`,
+        userId: user._id,
+        totalComments: user.comments.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching comments:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -342,51 +402,48 @@ const updateUser = async (req, res) => {
     }
 
     const { error, value } = validateUser(req.body);
-    
+
     if (error) {
       if (req.file) {
         try {
           await fs.unlink(req.file.path);
         } catch (unlinkError) {
-          console.error('Error deleting uploaded file:', unlinkError);
+          console.error("Error deleting uploaded file:", unlinkError);
         }
       }
-      
+
       return res.status(400).json({
         success: false,
-        message: 'Validation error',
-        errors: error.details.map(detail => ({
+        message: "Validation error",
+        errors: error.details.map((detail) => ({
           field: detail.path[0],
-          message: detail.message
-        }))
+          message: detail.message,
+        })),
       });
     }
 
     const userId = req.params.id;
     const existingUser = await User.findById(userId);
-    
+
     if (!existingUser) {
       if (req.file) {
         try {
           await fs.unlink(req.file.path);
         } catch (unlinkError) {
-          console.error('Error deleting uploaded file:', unlinkError);
+          console.error("Error deleting uploaded file:", unlinkError);
         }
       }
-      
+
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
     // Check for duplicate email or PAN (excluding current user)
     const duplicateUser = await User.findOne({
       _id: { $ne: userId },
-      $or: [
-        { mailId: value.mailId },
-        { panNo: value.panNo }
-      ]
+      $or: [{ mailId: value.mailId }, { panNo: value.panNo }],
     });
 
     if (duplicateUser) {
@@ -394,13 +451,13 @@ const updateUser = async (req, res) => {
         try {
           await fs.unlink(req.file.path);
         } catch (unlinkError) {
-          console.error('Error deleting uploaded file:', unlinkError);
+          console.error("Error deleting uploaded file:", unlinkError);
         }
       }
 
       return res.status(409).json({
         success: false,
-        message: 'Another user with this email or PAN number already exists'
+        message: "Another user with this email or PAN number already exists",
       });
     }
 
@@ -413,7 +470,7 @@ const updateUser = async (req, res) => {
         try {
           await fs.unlink(existingUser.pdfFile.path);
         } catch (unlinkError) {
-          console.error('Error deleting old file:', unlinkError);
+          console.error("Error deleting old file:", unlinkError);
         }
       }
 
@@ -423,36 +480,34 @@ const updateUser = async (req, res) => {
         originalName: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        path: req.file.path
+        path: req.file.path,
       };
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-pdfFile.path');
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, {
+      new: true,
+      runValidators: true,
+    }).select("-pdfFile.path");
 
     res.json({
       success: true,
-      message: 'User updated successfully',
-      data: updatedUser
+      message: "User updated successfully",
+      data: updatedUser,
     });
-
   } catch (error) {
-    console.error('Error updating user:', error);
-    
+    console.error("Error updating user:", error);
+
     if (req.file) {
       try {
         await fs.unlink(req.file.path);
       } catch (unlinkError) {
-        console.error('Error deleting uploaded file:', unlinkError);
+        console.error("Error deleting uploaded file:", unlinkError);
       }
     }
 
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 };
@@ -461,11 +516,11 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    
+
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
@@ -474,7 +529,7 @@ const deleteUser = async (req, res) => {
       try {
         await fs.unlink(user.pdfFile.path);
       } catch (unlinkError) {
-        console.error('Error deleting user file:', unlinkError);
+        console.error("Error deleting user file:", unlinkError);
       }
     }
 
@@ -482,14 +537,13 @@ const deleteUser = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'User deleted successfully'
+      message: "User deleted successfully",
     });
-
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error("Error deleting user:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 };
@@ -498,41 +552,41 @@ const deleteUser = async (req, res) => {
 const downloadPDF = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    
+
     if (!user || !user.pdfFile || !user.pdfFile.path) {
       return res.status(404).json({
         success: false,
-        message: 'File not found'
+        message: "File not found",
       });
     }
 
     const filePath = user.pdfFile.path;
-    
+
     // Check if file exists
     try {
       await fs.access(filePath);
     } catch (error) {
       return res.status(404).json({
         success: false,
-        message: 'File not found on server'
+        message: "File not found on server",
       });
     }
 
-    res.setHeader('Content-Type', user.pdfFile.mimetype);
-    res.setHeader('Content-Disposition', `attachment; filename="${user.pdfFile.originalName}"`);
-    
-    res.download(filePath, user.pdfFile.originalName);
+    res.setHeader("Content-Type", user.pdfFile.mimetype);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${user.pdfFile.originalName}"`
+    );
 
+    res.download(filePath, user.pdfFile.originalName);
   } catch (error) {
-    console.error('Error downloading file:', error);
+    console.error("Error downloading file:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 };
-
-
 
 const generateExcel = async (req, res) => {
   try {
@@ -541,7 +595,7 @@ const generateExcel = async (req, res) => {
 
     // Text search across name, email, and phone
     if (req.query.search) {
-      const searchRegex = new RegExp(req.query.search, 'i');
+      const searchRegex = new RegExp(req.query.search, "i");
       filter.$or = [
         { firstName: searchRegex },
         { middleName: searchRegex },
@@ -551,25 +605,27 @@ const generateExcel = async (req, res) => {
         { contactNo: searchRegex },
         { alternateContactNo: searchRegex },
         { fatherName: searchRegex },
-        { panNo: searchRegex }
+        { panNo: searchRegex },
       ];
     }
 
     // Gender filter
-    if (req.query.gender && req.query.gender !== 'All Genders') {
+    if (req.query.gender && req.query.gender !== "All Genders") {
       filter.gender = req.query.gender;
     }
 
     // Experience filter (range)
-    if (req.query.experience && req.query.experience !== 'All Experience') {
+    if (req.query.experience && req.query.experience !== "All Experience") {
       const expValue = req.query.experience;
-      if (expValue.includes('+')) {
+      if (expValue.includes("+")) {
         // Handle "10+" years case
-        const minExp = parseInt(expValue.replace('+', ''));
+        const minExp = parseInt(expValue.replace("+", ""));
         filter.totalExperience = { $gte: minExp };
-      } else if (expValue.includes('-')) {
+      } else if (expValue.includes("-")) {
         // Handle "5-10" years case
-        const [minExp, maxExp] = expValue.split('-').map(val => parseInt(val.trim()));
+        const [minExp, maxExp] = expValue
+          .split("-")
+          .map((val) => parseInt(val.trim()));
         filter.totalExperience = { $gte: minExp, $lte: maxExp };
       } else {
         // Handle exact experience
@@ -578,18 +634,20 @@ const generateExcel = async (req, res) => {
     }
 
     // CTC filter (range)
-    if (req.query.ctc && req.query.ctc !== 'All CTC') {
+    if (req.query.ctc && req.query.ctc !== "All CTC") {
       const ctcValue = req.query.ctc;
-      if (ctcValue.includes('+')) {
+      if (ctcValue.includes("+")) {
         // Handle "10+" lakhs case
-        const minCTC = parseFloat(ctcValue.replace('+', ''));
+        const minCTC = parseFloat(ctcValue.replace("+", ""));
         filter.ctcInLakhs = { $gte: minCTC.toString() };
-      } else if (ctcValue.includes('-')) {
+      } else if (ctcValue.includes("-")) {
         // Handle "5-10" lakhs case
-        const [minCTC, maxCTC] = ctcValue.split('-').map(val => parseFloat(val.trim()));
+        const [minCTC, maxCTC] = ctcValue
+          .split("-")
+          .map((val) => parseFloat(val.trim()));
         filter.ctcInLakhs = {
           $gte: minCTC.toString(),
-          $lte: maxCTC.toString()
+          $lte: maxCTC.toString(),
         };
       } else {
         // Handle exact CTC
@@ -598,26 +656,29 @@ const generateExcel = async (req, res) => {
     }
 
     // Location filters
-    if (req.query.currentState && req.query.currentState !== 'Current state') {
+    if (req.query.currentState && req.query.currentState !== "Current state") {
       filter.currentState = req.query.currentState;
     }
 
-    if (req.query.preferredState && req.query.preferredState !== 'Preferred state') {
+    if (
+      req.query.preferredState &&
+      req.query.preferredState !== "Preferred state"
+    ) {
       filter.preferredState = req.query.preferredState;
     }
 
     // Job-related filters
-    if (req.query.designation && req.query.designation !== 'Designation') {
+    if (req.query.designation && req.query.designation !== "Designation") {
       filter.designation = req.query.designation;
     }
 
-    if (req.query.department && req.query.department !== 'Department') {
+    if (req.query.department && req.query.department !== "Department") {
       filter.department = req.query.department;
     }
 
     // Current employer filter
     if (req.query.currentEmployer) {
-      filter.currentEmployer = new RegExp(req.query.currentEmployer, 'i');
+      filter.currentEmployer = new RegExp(req.query.currentEmployer, "i");
     }
 
     // Date range filters
@@ -633,7 +694,7 @@ const generateExcel = async (req, res) => {
 
     // Uploaded by filter
     if (req.query.uploadedBy) {
-      filter.uploadedBy = new RegExp(req.query.uploadedBy, 'i');
+      filter.uploadedBy = new RegExp(req.query.uploadedBy, "i");
     }
 
     const users = await User.find(filter).lean();
@@ -686,8 +747,12 @@ const generateExcel = async (req, res) => {
         // ✨ Change 2: Added the serial number using the loop's index.
         serialNumber: index + 1,
         ...user,
-        dateOfUpload: user.dateOfUpload ? new Date(user.dateOfUpload).toLocaleDateString('en-IN') : '',
-        dateOfBirth: user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('en-IN') : '',
+        dateOfUpload: user.dateOfUpload
+          ? new Date(user.dateOfUpload).toLocaleDateString("en-IN")
+          : "",
+        dateOfBirth: user.dateOfBirth
+          ? new Date(user.dateOfBirth).toLocaleDateString("en-IN")
+          : "",
       };
 
       const row = worksheet.addRow(rowData);
@@ -695,10 +760,12 @@ const generateExcel = async (req, res) => {
       // Correctly build the hyperlink URL
       if (user.pdfFile && user.pdfFile.filename) {
         const cell = row.getCell("cvLink");
-        const serverUrl = process.env.VITE_BACKEND_URI || 'https://rbgform-server-ss.onrender.com';
+        const serverUrl =
+          process.env.VITE_BACKEND_URI ||
+          "https://rbgform-server-ss.onrender.com";
         cell.value = {
           text: "Download CV",
-          hyperlink: `${serverUrl}/uploads/${user.pdfFile.filename}`
+          hyperlink: `${serverUrl}/uploads/${user.pdfFile.filename}`,
         };
         cell.font = { color: { argb: "FF0000FF" }, underline: true };
       }
@@ -708,16 +775,34 @@ const generateExcel = async (req, res) => {
     worksheet.getRow(1).eachCell((cell) => {
       cell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
       cell.alignment = { horizontal: "center", vertical: "middle" };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "4472C4" } };
-      cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "4472C4" },
+      };
+      cell.border = {
+        top: { style: "thin" },
+        left: { style: "thin" },
+        bottom: { style: "thin" },
+        right: { style: "thin" },
+      };
     });
 
     // Style all data rows
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber > 1) {
         row.eachCell((cell) => {
-          cell.alignment = { horizontal: "left", vertical: "middle", wrapText: true };
-          cell.border = { top: { style: "thin" }, left: { style: "thin" }, bottom: { style: "thin" }, right: { style: "thin" } };
+          cell.alignment = {
+            horizontal: "left",
+            vertical: "middle",
+            wrapText: true,
+          };
+          cell.border = {
+            top: { style: "thin" },
+            left: { style: "thin" },
+            bottom: { style: "thin" },
+            right: { style: "thin" },
+          };
         });
       }
     });
@@ -734,25 +819,36 @@ const generateExcel = async (req, res) => {
 
     await workbook.xlsx.write(res);
     res.end();
-    
   } catch (error) {
     console.error("Error generating Excel file:", error);
     if (!res.headersSent) {
-      res.status(500).send("An error occurred while generating the Excel file.");
+      res
+        .status(500)
+        .send("An error occurred while generating the Excel file.");
     }
   }
 };
 
-
 const addComment = async (req, res) => {
   try {
     const userId = req.params.id;
-    const { comment } = req.body;
 
-    if (!comment || typeof comment !== 'string' || comment.trim() === '') {
+    // Validate userId
+    if (!userId || userId === "undefined") {
       return res.status(400).json({
         success: false,
-        message: 'Comment is required and must be a non-empty string'
+        message: "Invalid or missing user ID",
+      });
+    }
+
+    // Accept both 'text' and 'comment' for backward compatibility
+    const text = req.body.text || req.body.comment;
+    const addedBy = req.body.addedBy || "unknown";
+
+    if (!text || typeof text !== "string" || text.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Comment text is required and must be a non-empty string",
       });
     }
 
@@ -761,143 +857,161 @@ const addComment = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found'
+        message: "User not found",
       });
     }
 
-    // Add comment to comments array
-    user.comments = user.comments || [];
-    user.comments.push(comment.trim());
+    // Ensure comments array exists
+    if (!Array.isArray(user.comments)) user.comments = [];
 
+    // Add comment object
+    user.comments.push({ text, addedBy, date: new Date() });
     await user.save();
 
     res.json({
       success: true,
-      message: 'Comment added successfully',
-      data: user.comments
+      message: "Comment added successfully",
+      data: user.comments,
     });
   } catch (error) {
-    console.error('Error adding comment:', error);
+    console.error("Error adding comment:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
 
 // Generate Excel for a SINGLE user with a clickable CV link
 const generateSingleUserExcel = async (req, res) => {
-    try {
-        const userId = req.params.id;
-        const user = await User.findById(userId).lean();
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).lean();
 
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // Calculate the user's serial number
-        const userCountBefore = await User.countDocuments({
-            dateOfUpload: { $lt: user.dateOfUpload }
-        });
-        const serialNumber = userCountBefore + 1;
-
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet("User Details");
-
-        // Define a structured layout
-        const data = [
-            // ✨ "Database ID" field has been removed.
-            { field: "Sr. No.", value: serialNumber },
-            { field: "Uploaded By", value: user.uploadedBy },
-            { field: "Date Of Upload", value: user.dateOfUpload ? new Date(user.dateOfUpload).toLocaleDateString('en-IN') : 'N/A' },
-            { field: "First Name", value: user.firstName },
-            { field: "Middle Name", value: user.middleName },
-            { field: "Last Name", value: user.lastName },
-            { field: "Email", value: user.mailId },
-            { field: "Alternate Email", value: user.alternateMailId },
-            { field: "Contact No", value: user.contactNo },
-            { field: "Alternate Contact No", value: user.alternateContactNo },
-            { field: "Father Name", value: user.fatherName },
-            { field: "PAN No", value: user.panNo },
-            { field: "Date of Birth", value: user.dateOfBirth ? new Date(user.dateOfBirth).toLocaleDateString('en-IN') : 'N/A' },
-            { field: "Gender", value: user.gender },
-            { field: "Current State", value: user.currentState },
-            { field: "Current City", value: user.currentCity },
-            { field: "Preferred State", value: user.preferredState },
-            { field: "Preferred City", value: user.preferredCity },
-            { field: "Current Employer", value: user.currentEmployer },
-            { field: "Designation", value: user.designation },
-            { field: "Department", value: user.department },
-            { field: "Comment 1", value: user.comment1 },
-            { field: "Comment 2", value: user.comment2 },
-            { field: "Comment 3", value: user.comment3 },
-            { 
-                field: "CV Link", 
-                value: (user.pdfFile && user.pdfFile.filename) 
-                    ? {
-                        text: 'Download Resume',
-                        hyperlink: `${process.env.VITE_BACKEND_URI || 'https://rbgform-server-ss.onrender.com'}/uploads/${user.pdfFile.filename}`
-                      }
-                    : 'No CV Uploaded'
-            },
-        ];
-        
-        // Add headers
-        worksheet.columns = [
-            { header: 'Field', key: 'field', width: 30 },
-            { header: 'Value', key: 'value', width: 50 }
-        ];
-
-        // Add the data rows
-        data.forEach(item => {
-            const row = worksheet.addRow(item);
-            if (item.value && item.value.hyperlink) {
-                const cell = row.getCell('value');
-                cell.font = { color: { argb: 'FF0000FF' }, underline: true };
-            }
-        });
-
-        // Style the header row
-        worksheet.getRow(1).eachCell((cell) => {
-            cell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
-            cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "4472C4" } };
-            cell.alignment = { vertical: 'middle' };
-        });
-
-        // Set filename
-        const filename = `user_${user.firstName || 'details'}_${user._id}.xlsx`;
-
-        res.setHeader(
-            "Content-Type",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        );
-        res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
-
-        await workbook.xlsx.write(res);
-        res.end();
-
-    } catch (error) {
-        console.error("Error generating single user Excel:", error);
-        res.status(500).json({
-            success: false,
-            message: "Internal server error",
-        });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
     }
+
+    // Calculate the user's serial number
+    const userCountBefore = await User.countDocuments({
+      dateOfUpload: { $lt: user.dateOfUpload },
+    });
+    const serialNumber = userCountBefore + 1;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("User Details");
+
+    // Define a structured layout
+    const data = [
+      // ✨ "Database ID" field has been removed.
+      { field: "Sr. No.", value: serialNumber },
+      { field: "Uploaded By", value: user.uploadedBy },
+      {
+        field: "Date Of Upload",
+        value: user.dateOfUpload
+          ? new Date(user.dateOfUpload).toLocaleDateString("en-IN")
+          : "N/A",
+      },
+      { field: "First Name", value: user.firstName },
+      { field: "Middle Name", value: user.middleName },
+      { field: "Last Name", value: user.lastName },
+      { field: "Email", value: user.mailId },
+      { field: "Alternate Email", value: user.alternateMailId },
+      { field: "Contact No", value: user.contactNo },
+      { field: "Alternate Contact No", value: user.alternateContactNo },
+      { field: "Father Name", value: user.fatherName },
+      { field: "PAN No", value: user.panNo },
+      {
+        field: "Date of Birth",
+        value: user.dateOfBirth
+          ? new Date(user.dateOfBirth).toLocaleDateString("en-IN")
+          : "N/A",
+      },
+      { field: "Gender", value: user.gender },
+      { field: "Current State", value: user.currentState },
+      { field: "Current City", value: user.currentCity },
+      { field: "Preferred State", value: user.preferredState },
+      { field: "Preferred City", value: user.preferredCity },
+      { field: "Current Employer", value: user.currentEmployer },
+      { field: "Designation", value: user.designation },
+      { field: "Department", value: user.department },
+      { field: "Comment 1", value: user.comment1 },
+      { field: "Comment 2", value: user.comment2 },
+      { field: "Comment 3", value: user.comment3 },
+      {
+        field: "CV Link",
+        value:
+          user.pdfFile && user.pdfFile.filename
+            ? {
+                text: "Download Resume",
+                hyperlink: `${
+                  process.env.VITE_BACKEND_URI ||
+                  "https://rbgform-server-ss.onrender.com"
+                }/uploads/${user.pdfFile.filename}`,
+              }
+            : "No CV Uploaded",
+      },
+    ];
+
+    // Add headers
+    worksheet.columns = [
+      { header: "Field", key: "field", width: 30 },
+      { header: "Value", key: "value", width: 50 },
+    ];
+
+    // Add the data rows
+    data.forEach((item) => {
+      const row = worksheet.addRow(item);
+      if (item.value && item.value.hyperlink) {
+        const cell = row.getCell("value");
+        cell.font = { color: { argb: "FF0000FF" }, underline: true };
+      }
+    });
+
+    // Style the header row
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true, size: 12, color: { argb: "FFFFFFFF" } };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "4472C4" },
+      };
+      cell.alignment = { vertical: "middle" };
+    });
+
+    // Set filename
+    const filename = `user_${user.firstName || "details"}_${user._id}.xlsx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error generating single user Excel:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
 };
-
-
 
 module.exports = {
   createUser,
   getAllUsers,
   getUserById,
+  getUserComments,
   updateUser,
   deleteUser,
   downloadPDF,
   generateExcel,
   addComment,
-  generateSingleUserExcel
+  generateSingleUserExcel,
 };

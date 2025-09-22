@@ -5,11 +5,9 @@ const formValidationSchema = Joi.object({
     .trim()
     .min(2)
     .max(100)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Uploaded by is required',
       'string.min': 'Uploaded by must be at least 2 characters',
       'string.max': 'Uploaded by cannot exceed 100 characters'
     }),
@@ -19,11 +17,9 @@ const formValidationSchema = Joi.object({
     .min(2)
     .max(50)
     .pattern(/^[A-Za-z\s]+$/)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'First name is required',
       'string.pattern.base': 'First name must contain only letters and spaces'
     }),
 
@@ -32,7 +28,6 @@ const formValidationSchema = Joi.object({
     .min(2)
     .max(50)
     .pattern(/^[A-Za-z\s]*$/)
-    //.allow('')
     .empty('')
     .optional()
     .messages({
@@ -44,21 +39,17 @@ const formValidationSchema = Joi.object({
     .min(2)
     .max(50)
     .pattern(/^[A-Za-z\s]+$/)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Last name is required',
       'string.pattern.base': 'Last name must contain only letters and spaces'
     }),
 
   contactNo: Joi.string()
     .pattern(/^[6-9]\d{9}$/)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Contact number is required',
       'string.pattern.base': 'Contact number must be a valid 10-digit Indian mobile number'
     }),
 
@@ -74,11 +65,9 @@ const formValidationSchema = Joi.object({
   mailId: Joi.string()
     .email()
     .lowercase()
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Email ID is required',
       'string.email': 'Please enter a valid email address'
     }),
 
@@ -97,190 +86,130 @@ const formValidationSchema = Joi.object({
     .min(2)
     .max(100)
     .pattern(/^[A-Za-z\s]+$/)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Father name is required',
       'string.pattern.base': 'Father name must contain only letters and spaces'
     }),
 
   panNo: Joi.string()
     .pattern(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)
     .uppercase()
-    //.required()
     .empty('')
     .optional()
     .messages({
-      // 'string.empty': 'PAN number is required',
       'string.pattern.base': 'PAN number must be in valid format (e.g., ABCDE1234F)'
     }),
 
   dateOfBirth: Joi.date()
     .max('now')
-    //.required()
     .empty('')
     .optional()
     .messages({
       'date.base': 'Date of birth must be a valid date',
       'date.max': 'Date of birth cannot be in the future',
-      //'any.required': 'Date of birth is required'
     }),
 
   gender: Joi.string()
     .valid('Male', 'Female', 'Other')
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'any.only': 'Gender must be Male, Female, or Other',
-      //'string.empty': 'Gender is required'
     }),
 
   currentState: Joi.string()
     .trim()
     .min(2)
     .max(100)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Current state is required'
     }),
 
   currentCity: Joi.string()
     .trim()
     .min(2)
     .max(100)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Current city is required'
     }),
 
   preferredState: Joi.string()
     .trim()
     .min(2)
     .max(100)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Preferred state is required'
     }),
 
   preferredCity: Joi.string()
     .trim()
     .min(2)
     .max(100)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Preferred city is required'
     }),
 
   currentEmployer: Joi.string()
     .trim()
     .min(2)
     .max(200)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Current employer is required'
     }),
 
   designation: Joi.string()
     .trim()
     .min(2)
     .max(100)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Designation is required'
     }),
 
   department: Joi.string()
     .trim()
     .min(2)
     .max(100)
-    //.required()
     .empty('')
     .optional()
     .messages({
-      //'string.empty': 'Department is required'
     }),
 
   ctcInLakhs: Joi.string()
     .pattern(/^\d+(\.\d{2})$/)
-    //.required()
     .empty('')
     .optional()
     .messages({
       'string.pattern.base': 'CTC must be in format like 000.00 (e.g., 005.50 for 5.5 lakhs)',
-      //'any.required': 'CTC in lakhs is required'
     }),
 
-  totalExperience: Joi.number()
-    .min(0)
-    .max(50)
-    .precision(1)
-    //.required()
-    .empty('')
-    .optional()
+  totalExperience: Joi.string()
+    .pattern(/^\d+-\d+$/)
+    .required()
     .messages({
-      'number.base': 'Total experience must be a valid number',
-      'number.min': 'Total experience cannot be negative',
-      'number.max': 'Total experience cannot exceed 50 years',
-      //'any.required': 'Total experience is required'
+      "string.pattern.base": "Total experience must be in format 'X-Y' (e.g., '1-2')",
     }),
 
-  comment1: Joi.string()
-    .trim()
-    .max(500)
-    .allow('')
-    .empty('')
-    .optional()
-    .messages({
-      'string.max': 'Comment 1 cannot exceed 500 characters'
-    }),
-
-  comment2: Joi.string()
-    .trim()
-    .max(500)
-    .allow('')
-    .empty('')
-    .optional()
-    .messages({
-      'string.max': 'Comment 2 cannot exceed 500 characters'
-    }),
-
-  comment3: Joi.string()
-    .trim()
-    .max(500)
-    .allow('')
-    .empty('')
-    .optional()
-    .messages({
-      'string.max': 'Comment 3 cannot exceed 500 characters'
-    }),
-
-  comments: Joi.array()
-    .items(Joi.string().trim().max(500))
-    .optional()
-    .messages({
-      'array.base': 'Comments must be an array',
-      'string.max': 'Each comment cannot exceed 500 characters'
+  // ✨ THIS IS THE CORRECTED RULE ✨
+  // It now expects an array of objects, matching your database model.
+  comments: Joi.array().items(
+    Joi.object({
+      text: Joi.string().trim().max(500).required(),
+      addedBy: Joi.string().trim().allow(null, ''),
+      addedAt: Joi.date()
     })
+  ).optional().allow(null, ''),
 });
 
 const validateUser = (userData) => {
   return formValidationSchema.validate(userData, {
     abortEarly: false,
-    stripUnknown: true
+    stripUnknown: true // This is the option that was removing your comments
   });
 };
 
