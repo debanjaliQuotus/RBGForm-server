@@ -190,7 +190,7 @@ const formValidationSchema = Joi.object({
 
   totalExperience: Joi.string()
     .pattern(/^\d+-\d+$/)
-    .required()
+    .optional()
     .messages({
       "string.pattern.base": "Total experience must be in format 'X-Y' (e.g., '1-2')",
     }),
