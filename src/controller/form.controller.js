@@ -39,30 +39,7 @@ const createUser = async (req, res) => {
       });
     }
 
-    // Check if user with same email or PAN already exists
-    let duplicateQuery = [{ mailId: value.mailId }];
-    if (value.panNo && value.panNo.trim() !== "") {
-      duplicateQuery.push({ panNo: value.panNo });
-    }
-    const existingUser = await User.findOne({
-      $or: duplicateQuery,
-    });
 
-    if (existingUser) {
-      // Delete uploaded file if user already exists
-      if (req.file) {
-        try {
-          await fs.unlink(req.file.path);
-        } catch (unlinkError) {
-          console.error("Error deleting uploaded file:", unlinkError);
-        }
-      }
-
-      return res.status(409).json({
-        success: false,
-        message: "User with this email or PAN number already exists",
-      });
-    }
 
     // Prepare user data
     const userData = { ...value };
@@ -444,26 +421,7 @@ const updateUser = async (req, res) => {
       });
     }
 
-    // Check for duplicate email or PAN (excluding current user)
-    const duplicateUser = await User.findOne({
-      _id: { $ne: userId },
-      $or: [{ mailId: value.mailId }, { panNo: value.panNo }],
-    });
 
-    if (duplicateUser) {
-      if (req.file) {
-        try {
-          await fs.unlink(req.file.path);
-        } catch (unlinkError) {
-          console.error("Error deleting uploaded file:", unlinkError);
-        }
-      }
-
-      return res.status(409).json({
-        success: false,
-        message: "Another user with this email or PAN number already exists",
-      });
-    }
 
     const updateData = { ...value };
 
