@@ -8,11 +8,18 @@ const mongoose = require("mongoose");
 // Create new user
 const createUser = async (req, res) => {
   try {
-    // Format ctcInLakhs if present and is a number
-    if (req.body.ctcInLakhs !== undefined) {
-      const ctcValue = parseFloat(req.body.ctcInLakhs);
-      if (!isNaN(ctcValue)) {
-        req.body.ctcInLakhs = ctcValue.toFixed(2);
+    // Format CTC fields if present and are numbers
+    if (req.body.minCTC !== undefined) {
+      const minCTCValue = parseFloat(req.body.minCTC);
+      if (!isNaN(minCTCValue)) {
+        req.body.minCTC = Math.round(minCTCValue);
+      }
+    }
+
+    if (req.body.maxCTC !== undefined) {
+      const maxCTCValue = parseFloat(req.body.maxCTC);
+      if (!isNaN(maxCTCValue)) {
+        req.body.maxCTC = Math.round(maxCTCValue);
       }
     }
 
@@ -140,25 +147,16 @@ const getAllUsers = async (req, res) => {
       }
     }
 
-    // CTC filter (range)
-    if (req.query.ctc && req.query.ctc !== "All CTC") {
-      const ctcValue = req.query.ctc;
-      if (ctcValue.includes("+")) {
-        // Handle "10+" lakhs case
-        const minCTC = parseFloat(ctcValue.replace("+", ""));
-        filter.ctcInLakhs = { $gte: minCTC.toString() };
-      } else if (ctcValue.includes("-")) {
-        // Handle "5-10" lakhs case
-        const [minCTC, maxCTC] = ctcValue
-          .split("-")
-          .map((val) => parseFloat(val.trim()));
-        filter.ctcInLakhs = {
-          $gte: minCTC.toString(),
-          $lte: maxCTC.toString(),
-        };
-      } else {
-        // Handle exact CTC
-        filter.ctcInLakhs = ctcValue;
+    // CTC filter (range) - now using minCTC and maxCTC
+    if (req.query.minCTC || req.query.maxCTC) {
+      filter.$and = filter.$and || [];
+
+      if (req.query.minCTC && req.query.minCTC !== "0") {
+        filter.$and.push({ minCTC: { $gte: parseInt(req.query.minCTC) } });
+      }
+
+      if (req.query.maxCTC && req.query.maxCTC !== "All") {
+        filter.$and.push({ maxCTC: { $lte: parseInt(req.query.maxCTC) } });
       }
     }
 
@@ -229,30 +227,45 @@ const getAllUsers = async (req, res) => {
       User.distinct("currentEmployer"),
     ]);
 
-    // Get experience range options
-    const experiences = await User.distinct("totalExperience");
-    const minExp = Math.min(...experiences.filter((e) => e != null));
-    const maxExp = Math.max(...experiences.filter((e) => e != null));
-    let experienceOptions = ["All Experience"];
+    // Get experience range options - now using minExperience and maxExperience
+    const minExperiences = await User.distinct("minExperience");
+    const maxExperiences = await User.distinct("maxExperience");
 
-    // Generate ranges like 0-1, 1-2, 2-3, ...
-    for (let i = minExp; i < maxExp; i++) {
-      experienceOptions.push(`${i}-${i + 1}`);
+    const minExp = Math.min(...minExperiences.filter((e) => e != null));
+    const maxExp = Math.max(...maxExperiences.filter((e) => e != null));
+
+    let minExperienceOptions = ["0"];
+    let maxExperienceOptions = ["All"];
+
+    // Generate min experience options
+    for (let i = minExp; i <= maxExp; i++) {
+      minExperienceOptions.push(i.toString());
     }
 
-    // Optionally add a "10+" or similar for high experience
-    if (maxExp >= 10) {
-      experienceOptions.push(`${maxExp}+`);
+    // Generate max experience options
+    for (let i = minExp; i <= maxExp; i++) {
+      maxExperienceOptions.push(i.toString());
     }
 
-    // Get CTC range options
-    const ctcValues = await User.distinct("ctcInLakhs");
-    const ctcOptions = [
-      "All CTC",
-      ...ctcValues
-        .filter((ctc) => ctc != null)
-        .sort((a, b) => parseFloat(a) - parseFloat(b)),
-    ];
+    // Get CTC range options - now using minCTC and maxCTC
+    const minCTCValues = await User.distinct("minCTC");
+    const maxCTCValues = await User.distinct("maxCTC");
+
+    const minCTC = Math.min(...minCTCValues.filter((c) => c != null));
+    const maxCTC = Math.max(...maxCTCValues.filter((c) => c != null));
+
+    let minCTCOptions = ["0"];
+    let maxCTCOptions = ["All"];
+
+    // Generate min CTC options (1-5 range)
+    for (let i = 1; i <= 5; i++) {
+      minCTCOptions.push(i.toString());
+    }
+
+    // Generate max CTC options (1-14 range)
+    for (let i = 1; i <= 14; i++) {
+      maxCTCOptions.push(i.toString());
+    }
 
     // Add permanent details to each user
     const usersWithPermanentDetails = users.map((user) => {
@@ -298,8 +311,10 @@ const getAllUsers = async (req, res) => {
           currentEmployers: [
             ...currentEmployers.filter((e) => e != null).sort(),
           ],
-          experiences: [...new Set(experienceOptions)], // Remove duplicates
-          ctcOptions: [...new Set(ctcOptions)], // Remove duplicates
+          minExperienceOptions: [...new Set(minExperienceOptions)], // Remove duplicates
+          maxExperienceOptions: [...new Set(maxExperienceOptions)], // Remove duplicates
+          minCTCOptions: [...new Set(minCTCOptions)], // Remove duplicates
+          maxCTCOptions: [...new Set(maxCTCOptions)], // Remove duplicates
         },
       },
     });
@@ -374,11 +389,18 @@ const getUserComments = async (req, res) => {
 // Update user
 const updateUser = async (req, res) => {
   try {
-    // Format ctcInLakhs if present and is a number
-    if (req.body.ctcInLakhs !== undefined) {
-      const ctcValue = parseFloat(req.body.ctcInLakhs);
-      if (!isNaN(ctcValue)) {
-        req.body.ctcInLakhs = ctcValue.toFixed(2);
+    // Format CTC fields if present and are numbers
+    if (req.body.minCTC !== undefined) {
+      const minCTCValue = parseFloat(req.body.minCTC);
+      if (!isNaN(minCTCValue)) {
+        req.body.minCTC = Math.round(minCTCValue);
+      }
+    }
+
+    if (req.body.maxCTC !== undefined) {
+      const maxCTCValue = parseFloat(req.body.maxCTC);
+      if (!isNaN(maxCTCValue)) {
+        req.body.maxCTC = Math.round(maxCTCValue);
       }
     }
 
@@ -576,44 +598,29 @@ const generateExcel = async (req, res) => {
       filter.gender = req.query.gender;
     }
 
-    // Experience filter (range)
-    if (req.query.experience && req.query.experience !== "All Experience") {
-      const expValue = req.query.experience;
-      if (expValue.includes("+")) {
-        // Handle "10+" years case
-        const minExp = parseInt(expValue.replace("+", ""));
-        filter.totalExperience = { $gte: minExp };
-      } else if (expValue.includes("-")) {
-        // Handle "5-10" years case
-        const [minExp, maxExp] = expValue
-          .split("-")
-          .map((val) => parseInt(val.trim()));
-        filter.totalExperience = { $gte: minExp, $lte: maxExp };
-      } else {
-        // Handle exact experience
-        filter.totalExperience = parseInt(expValue);
+    // Experience filter (range) - now using minExperience and maxExperience
+    if (req.query.minExperience || req.query.maxExperience) {
+      filter.$and = filter.$and || [];
+
+      if (req.query.minExperience && req.query.minExperience !== "0") {
+        filter.$and.push({ minExperience: { $gte: parseInt(req.query.minExperience) } });
+      }
+
+      if (req.query.maxExperience && req.query.maxExperience !== "All") {
+        filter.$and.push({ maxExperience: { $lte: parseInt(req.query.maxExperience) } });
       }
     }
 
-    // CTC filter (range)
-    if (req.query.ctc && req.query.ctc !== "All CTC") {
-      const ctcValue = req.query.ctc;
-      if (ctcValue.includes("+")) {
-        // Handle "10+" lakhs case
-        const minCTC = parseFloat(ctcValue.replace("+", ""));
-        filter.ctcInLakhs = { $gte: minCTC.toString() };
-      } else if (ctcValue.includes("-")) {
-        // Handle "5-10" lakhs case
-        const [minCTC, maxCTC] = ctcValue
-          .split("-")
-          .map((val) => parseFloat(val.trim()));
-        filter.ctcInLakhs = {
-          $gte: minCTC.toString(),
-          $lte: maxCTC.toString(),
-        };
-      } else {
-        // Handle exact CTC
-        filter.ctcInLakhs = ctcValue;
+    // CTC filter (range) - now using minCTC and maxCTC
+    if (req.query.minCTC || req.query.maxCTC) {
+      filter.$and = filter.$and || [];
+
+      if (req.query.minCTC && req.query.minCTC !== "0") {
+        filter.$and.push({ minCTC: { $gte: parseInt(req.query.minCTC) } });
+      }
+
+      if (req.query.maxCTC && req.query.maxCTC !== "All") {
+        filter.$and.push({ maxCTC: { $lte: parseInt(req.query.maxCTC) } });
       }
     }
 
@@ -696,8 +703,10 @@ const generateExcel = async (req, res) => {
       { header: "Current Employer", key: "currentEmployer", width: 25 },
       { header: "Designation", key: "designation", width: 25 },
       { header: "Department", key: "department", width: 25 },
-      { header: "CTC (Lakhs)", key: "ctcInLakhs", width: 15 },
-      { header: "Experience (Yrs)", key: "totalExperience", width: 15 },
+      { header: "Min CTC (Lakhs)", key: "minCTC", width: 15 },
+      { header: "Max CTC (Lakhs)", key: "maxCTC", width: 15 },
+      { header: "Min Experience (Yrs)", key: "minExperience", width: 15 },
+      { header: "Max Experience (Yrs)", key: "maxExperience", width: 15 },
       { header: "CV Link", key: "cvLink", width: 40 },
       { header: "Comment1", key: "comment1", width: 40 },
       { header: "Comment2", key: "comment2", width: 40 },

@@ -180,19 +180,48 @@ const formValidationSchema = Joi.object({
     .messages({
     }),
 
-  ctcInLakhs: Joi.string()
-    .pattern(/^\d+(\.\d{2})$/)
-    .empty('')
+  minCTC: Joi.number()
+    .integer()
+    .min(0)
+    .max(50)
     .optional()
     .messages({
-      'string.pattern.base': 'CTC must be in format like 000.00 (e.g., 005.50 for 5.5 lakhs)',
+      "number.base": "Minimum CTC must be a number",
+      "number.min": "Minimum CTC cannot be negative",
+      "number.max": "Minimum CTC cannot exceed 50 lakhs",
     }),
 
-  totalExperience: Joi.string()
-    .pattern(/^\d+-\d+$/)
+  maxCTC: Joi.number()
+    .integer()
+    .min(0)
+    .max(50)
     .optional()
     .messages({
-      "string.pattern.base": "Total experience must be in format 'X-Y' (e.g., '1-2')",
+      "number.base": "Maximum CTC must be a number",
+      "number.min": "Maximum CTC cannot be negative",
+      "number.max": "Maximum CTC cannot exceed 50 lakhs",
+    }),
+
+  minExperience: Joi.number()
+    .integer()
+    .min(0)
+    .max(50)
+    .optional()
+    .messages({
+      "number.base": "Minimum experience must be a number",
+      "number.min": "Minimum experience cannot be negative",
+      "number.max": "Minimum experience cannot exceed 50 years",
+    }),
+
+  maxExperience: Joi.number()
+    .integer()
+    .min(0)
+    .max(50)
+    .optional()
+    .messages({
+      "number.base": "Maximum experience must be a number",
+      "number.min": "Maximum experience cannot be negative",
+      "number.max": "Maximum experience cannot exceed 50 years",
     }),
 
   // ✨ THIS IS THE CORRECTED RULE ✨

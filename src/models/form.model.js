@@ -100,28 +100,29 @@ const userSchema = new mongoose.Schema(
       // required: true,
       trim: true,
     },
-    ctcInLakhs: {
-      type: String,
+    minCTC: {
+      type: Number,
       // required: true,
-      validate: {
-        validator: function (v) {
-          return /^\d+(\.\d{2})$/.test(v);
-        },
-        message:
-          "CTC must be in format like 000.00 (e.g., 005.50 for 5.5 lakhs)",
-      },
-      set: function (v) {
-        if (typeof v === "number") {
-          return v.toFixed(2);
-        }
-        return v;
-      },
+      min: 0,
+      // Minimum CTC in lakhs
     },
-    totalExperience: {
-      type: String,
+    maxCTC: {
+      type: Number,
       // required: true,
-      trim: true,
-      // Example values: "0-1", "1-2", "2-3"
+      min: 0,
+      // Maximum CTC in lakhs
+    },
+    minExperience: {
+      type: Number,
+      // required: true,
+      min: 0,
+      // Minimum years of experience
+    },
+    maxExperience: {
+      type: Number,
+      // required: true,
+      min: 0,
+      // Maximum years of experience
     },
     pdfFile: {
       filename: String,
