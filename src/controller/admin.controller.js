@@ -1,6 +1,60 @@
 const User = require('../models/user.model');
 const emailService = require('../services/email.service');
 
+// Create new user (sub-admin or sub-user)
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password, role } = req.body;
+
+    // Validate role
+    if (!['sub-admin', 'sub-user'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role. Only sub-admin or sub-user allowed'
+      });
+    }
+
+    // Validate required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, email, and password are required'
+      });
+    }
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'User with this email already exists'
+      });
+    }
+
+    // Create and save user
+    const newUser = new User({ name, email, password, role });
+    const savedUser = await newUser.save();
+
+    // Remove password before sending response
+    const safeUser = await User.findById(savedUser._id).select('-password');
+
+    res.status(201).json({
+      success: true,
+      message: `${role} created successfully`,
+      data: safeUser
+    });
+
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+
 // Get all sub-admins
 const getAllSubAdmins = async (req, res) => {
   try {
@@ -224,6 +278,7 @@ const getAdminStats = async (req, res) => {
 };
 
 module.exports = {
+  createUser,
   getAllSubAdmins,
   getAllSubUsers,
   getSubAdminById,

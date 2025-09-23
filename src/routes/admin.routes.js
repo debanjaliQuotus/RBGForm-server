@@ -1,5 +1,6 @@
 const express = require('express');
 const {
+  createUser, 
   getAllSubAdmins,
   getAllSubUsers,
   getSubAdminById,
@@ -17,6 +18,8 @@ const router = express.Router();
 
 // Admin dashboard routes
 router.get('/stats', getAdminStats);
+
+router.post('/create-user', createUser);
 
 // Sub-admin management routes
 router.get('/sub-admins', getAllSubAdmins);
