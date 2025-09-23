@@ -40,8 +40,12 @@ const createUser = async (req, res) => {
     }
 
     // Check if user with same email or PAN already exists
+    let duplicateQuery = [{ mailId: value.mailId }];
+    if (value.panNo && value.panNo.trim() !== "") {
+      duplicateQuery.push({ panNo: value.panNo });
+    }
     const existingUser = await User.findOne({
-      $or: [{ mailId: value.mailId }, { panNo: value.panNo }],
+      $or: duplicateQuery,
     });
 
     if (existingUser) {
@@ -697,7 +701,8 @@ const generateExcel = async (req, res) => {
       filter.uploadedBy = new RegExp(req.query.uploadedBy, "i");
     }
 
-    const users = await User.find(filter).lean();
+    // Limit the number of exported users to 25
+    const users = await User.find(filter).limit(25).lean();
 
     if (!users || users.length === 0) {
       return res.status(404).json({

@@ -322,10 +322,16 @@ const requestPasswordReset = async (req, res) => {
 
 // Reset password with token
 const resetPassword = async (req, res) => {
-  try {
+    try {
     const { token, newPassword } = req.body;
 
-    // Find user with valid reset token
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Token and new password are required",
+      });
+    }
+
     const hashedToken = crypto
       .createHash('sha256')
       .update(token)
@@ -367,11 +373,11 @@ const resetPassword = async (req, res) => {
       message: 'Password reset successfully'
     });
 
-  } catch (error) {
-    console.error('Error resetting password:', error);
+  }  catch (error) {
+    console.error("Error resetting password:", error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: "Internal server error",
     });
   }
 };
