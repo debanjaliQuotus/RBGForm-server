@@ -18,7 +18,7 @@ class EmailService {
   async sendPasswordResetEmail(email, resetToken) {
     try {
       const resetURL = `${
-        process.env.FRONTEND_URL || "http://localhost:5173"
+        process.env.FRONTEND_URL || "https://rbg-form-client-sigma.vercel.app"
       }/reset-password/${resetToken}`;
 
       const mailOptions = {
