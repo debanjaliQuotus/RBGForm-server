@@ -182,12 +182,12 @@ const formValidationSchema = Joi.object({
 
   ctcInLakhs: Joi.number()
     .min(0)
-    .max(50)
+    .allow('')
+    .empty('')
     .optional()
     .messages({
       "number.base": "CTC must be a number",
       "number.min": "CTC cannot be negative",
-      "number.max": "CTC cannot exceed 50 lakhs",
     }),
 
   totalExperience: Joi.number()
