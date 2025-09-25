@@ -182,6 +182,32 @@ const getAllUsers = async (req, res) => {
       }
     }
 
+    // Age filter (range)
+    if (req.query.minAge || req.query.maxAge) {
+      filter.$expr = filter.$expr || { $and: [] };
+      if (req.query.minAge) {
+        const minAge = parseInt(req.query.minAge);
+        filter.$expr.$and.push({
+          $gte: [
+            { $divide: [{ $subtract: [new Date(), "$dateOfBirth"] }, 365.25 * 24 * 60 * 60 * 1000] },
+            minAge
+          ]
+        });
+      }
+      if (req.query.maxAge) {
+        const maxAge = parseInt(req.query.maxAge);
+        filter.$expr.$and.push({
+          $lte: [
+            { $divide: [{ $subtract: [new Date(), "$dateOfBirth"] }, 365.25 * 24 * 60 * 60 * 1000] },
+            maxAge
+          ]
+        });
+      }
+      if (filter.$expr.$and.length === 0) {
+        delete filter.$expr;
+      }
+    }
+
     // Uploaded by filter
     if (req.query.uploadedBy) {
       filter.uploadedBy = new RegExp(req.query.uploadedBy, "i");
@@ -288,6 +314,7 @@ const getAllUsers = async (req, res) => {
           ],
           experienceOptions: [...new Set(experienceOptions)], // Remove duplicates
           ctcOptions: [...new Set(ctcOptions)], // Remove duplicates
+          ageOptions: ["18", "25", "30", "35", "40", "45", "50", "55", "60", "65"],
         },
       },
     });
@@ -619,6 +646,32 @@ const generateExcel = async (req, res) => {
       }
     }
 
+    // Age filter (range)
+    if (req.query.minAge || req.query.maxAge) {
+      filter.$expr = filter.$expr || { $and: [] };
+      if (req.query.minAge) {
+        const minAge = parseInt(req.query.minAge);
+        filter.$expr.$and.push({
+          $gte: [
+            { $divide: [{ $subtract: [new Date(), "$dateOfBirth"] }, 365.25 * 24 * 60 * 60 * 1000] },
+            minAge
+          ]
+        });
+      }
+      if (req.query.maxAge) {
+        const maxAge = parseInt(req.query.maxAge);
+        filter.$expr.$and.push({
+          $lte: [
+            { $divide: [{ $subtract: [new Date(), "$dateOfBirth"] }, 365.25 * 24 * 60 * 60 * 1000] },
+            maxAge
+          ]
+        });
+      }
+      if (filter.$expr.$and.length === 0) {
+        delete filter.$expr;
+      }
+    }
+
     // Uploaded by filter
     if (req.query.uploadedBy) {
       filter.uploadedBy = new RegExp(req.query.uploadedBy, "i");
@@ -672,9 +725,6 @@ const generateExcel = async (req, res) => {
       { header: "CTC (Lakhs)", key: "ctcInLakhs", width: 15 },
       { header: "Experience (Yrs)", key: "totalExperience", width: 15 },
       { header: "CV Link", key: "cvLink", width: 40 },
-      { header: "Comment1", key: "comment1", width: 40 },
-      { header: "Comment2", key: "comment2", width: 40 },
-      { header: "Comment3", key: "comment3", width: 40 },
     ];
 
     // Add rows with corrected data and hyperlinks
