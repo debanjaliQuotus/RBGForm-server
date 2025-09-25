@@ -750,7 +750,7 @@ const generateExcel = async (req, res) => {
         const cell = row.getCell("cvLink");
         const serverUrl =
           process.env.VITE_BACKEND_URI ||
-          "https://rbgform-server-whzg.onrender.com";
+          "http://localhost:5000";
         cell.value = {
           text: "Download CV",
           hyperlink: `${serverUrl}/uploads/${user.pdfFile.filename}`,
