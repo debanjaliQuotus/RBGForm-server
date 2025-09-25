@@ -525,8 +525,8 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// Download PDF file
-const downloadPDF = async (req, res) => {
+// Download file
+const downloadFile = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
@@ -750,7 +750,7 @@ const generateExcel = async (req, res) => {
         const cell = row.getCell("cvLink");
         const serverUrl =
           process.env.VITE_BACKEND_URI ||
-          "https://rbgform-server-ss.onrender.com";
+          "https://rbgform-server-whzg.onrender.com";
         cell.value = {
           text: "Download CV",
           hyperlink: `${serverUrl}/uploads/${user.pdfFile.filename}`,
@@ -998,7 +998,7 @@ module.exports = {
   getUserComments,
   updateUser,
   deleteUser,
-  downloadPDF,
+  downloadFile,
   generateExcel,
   addComment,
   generateSingleUserExcel,
