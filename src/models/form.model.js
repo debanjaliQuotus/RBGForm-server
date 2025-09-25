@@ -100,29 +100,17 @@ const userSchema = new mongoose.Schema(
       // required: true,
       trim: true,
     },
-    minCTC: {
+    ctcInLakhs: {
       type: Number,
       // required: true,
       min: 0,
-      // Minimum CTC in lakhs
+      // CTC in lakhs
     },
-    maxCTC: {
+    totalExperience: {
       type: Number,
       // required: true,
       min: 0,
-      // Maximum CTC in lakhs
-    },
-    minExperience: {
-      type: Number,
-      // required: true,
-      min: 0,
-      // Minimum years of experience
-    },
-    maxExperience: {
-      type: Number,
-      // required: true,
-      min: 0,
-      // Maximum years of experience
+      // Total years of experience
     },
     pdfFile: {
       filename: String,
