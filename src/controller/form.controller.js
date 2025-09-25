@@ -625,7 +625,7 @@ const generateExcel = async (req, res) => {
     }
 
     // Determine if any filter is applied - check for actual filter conditions
-    const isFilterApplied = Object.keys(filter).length > 0 && 
+   const isFilterApplied = Object.keys(req.query).length > 0 && 
       Object.values(filter).some(value => 
         value !== null && value !== undefined && 
         (typeof value !== 'object' || Object.keys(value).length > 0)
