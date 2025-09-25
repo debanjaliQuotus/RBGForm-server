@@ -6,7 +6,7 @@ const {
     getUserComments,
     updateUser,
     deleteUser,
-    downloadFile,
+    downloadFile ,
     generateExcel,
     addComment,
     generateSingleUserExcel

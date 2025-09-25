@@ -525,7 +525,7 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// Download file
+// Download file (supports PDF and other formats)
 const downloadFile = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
