@@ -316,23 +316,17 @@ const createCompany = async (req, res) => {
     });
   }
 };
-
 // Get all companies
 const getAllCompanies = async (req, res) => {
   try {
     const companies = await Company.find().sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      message: 'Companies retrieved successfully',
-      data: companies
-    });
-
+    res.json(companies); // ✅ return only array
   } catch (error) {
     console.error('Error fetching companies:', error);
-    res.status(500).json({ success: false, message: 'Internal server error' });
+    res.status(500).json({ message: 'Internal server error' });
   }
 };
+
 
 // Get company by ID
 const getCompanyById = async (req, res) => {
