@@ -113,19 +113,18 @@ const userSchema = new mongoose.Schema(
       // Total years of experience
     },
     pdfFile: {
-      filename: String,
-      originalName: String,
-      mimetype: String,
-      size: Number,
-      path: String,
+      data: Buffer, // store actual file bytes
+      originalName: String, // original file name
+      mimetype: String, // content type
+      size: Number, // file size in bytes
     },
-   comments: [
-  {
-    text: String,
-    addedBy: String,
-    date: Date
-  }
-]
+    comments: [
+      {
+        text: String,
+        addedBy: String,
+        date: Date,
+      },
+    ],
   },
   {
     timestamps: true,

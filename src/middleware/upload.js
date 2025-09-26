@@ -2,17 +2,8 @@
 const multer = require('multer');
 const path = require('path');
 
-// Storage configuration
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // folder where files will be stored
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    const uniqueName = `${file.fieldname}-${Date.now()}${ext}`;
-    cb(null, uniqueName);
-  }
-});
+// Memory storage for MongoDB
+const storage = multer.memoryStorage();
 
 // File filter to allow PDF and DOCX
 const fileFilter = (req, file, cb) => {
@@ -29,7 +20,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024 } // Optional: limit to 10MB
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
 module.exports = upload;

@@ -47,11 +47,10 @@ const createUser = async (req, res) => {
     // Add file information if PDF was uploaded
     if (req.file) {
       userData.pdfFile = {
-        filename: req.file.filename,
+        data: req.file.buffer,
         originalName: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        path: req.file.path,
       };
     }
 
@@ -214,7 +213,7 @@ const getAllUsers = async (req, res) => {
     }
 
     const users = await User.find(filter)
-      .select("-pdfFile.path") // Exclude file path from response
+      .select("-pdfFile.data") // Exclude file data from response
       .sort({ dateOfUpload: -1 })
       .skip(skip)
       .limit(limit);
@@ -337,7 +336,7 @@ const getUserById = async (req, res) => {
       });
     }
 
-    const user = await User.findById(req.params.id).select("-pdfFile.path");
+    const user = await User.findById(req.params.id).select("-pdfFile.data");
 
     if (!user) {
       return res.status(404).json({
@@ -442,22 +441,12 @@ const updateUser = async (req, res) => {
 
     // Handle file update
     if (req.file) {
-      // Delete old file if it exists
-      if (existingUser.pdfFile && existingUser.pdfFile.path) {
-        try {
-          await fs.unlink(existingUser.pdfFile.path);
-        } catch (unlinkError) {
-          console.error("Error deleting old file:", unlinkError);
-        }
-      }
-
       // Add new file info
       updateData.pdfFile = {
-        filename: req.file.filename,
+        data: req.file.buffer,
         originalName: req.file.originalname,
         mimetype: req.file.mimetype,
         size: req.file.size,
-        path: req.file.path,
       };
     }
 
@@ -501,15 +490,6 @@ const deleteUser = async (req, res) => {
       });
     }
 
-    // Delete associated file if it exists
-    if (user.pdfFile && user.pdfFile.path) {
-      try {
-        await fs.unlink(user.pdfFile.path);
-      } catch (unlinkError) {
-        console.error("Error deleting user file:", unlinkError);
-      }
-    }
-
     await User.findByIdAndDelete(req.params.id);
 
     res.json({
@@ -525,43 +505,44 @@ const deleteUser = async (req, res) => {
   }
 };
 
+const uploadFile = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
+    }
+
+    user.pdfFile = {
+      data: req.file.buffer,        // store file as Buffer
+      originalName: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+    };
+
+    await user.save();
+    res.json({ success: true, message: 'File uploaded successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Upload failed' });
+  }
+};
+
 // Download file (supports PDF and other formats)
 const downloadFile = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-
-    if (!user || !user.pdfFile || !user.pdfFile.path) {
-      return res.status(404).json({
-        success: false,
-        message: "File not found",
-      });
+    if (!user || !user.pdfFile || !user.pdfFile.data) {
+      return res.status(404).json({ success: false, message: 'File not found' });
     }
 
-    const filePath = user.pdfFile.path;
-
-    // Check if file exists
-    try {
-      await fs.access(filePath);
-    } catch (error) {
-      return res.status(404).json({
-        success: false,
-        message: "File not found on server",
-      });
-    }
-
-    res.setHeader("Content-Type", user.pdfFile.mimetype);
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="${user.pdfFile.originalName}"`
-    );
-
-    res.download(filePath, user.pdfFile.originalName);
-  } catch (error) {
-    console.error("Error downloading file:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    res.setHeader('Content-Type', user.pdfFile.mimetype);
+    res.setHeader('Content-Disposition', `attachment; filename="${user.pdfFile.originalName}"`);
+    res.send(user.pdfFile.data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Error downloading file' });
   }
 };
 
@@ -746,14 +727,14 @@ const generateExcel = async (req, res) => {
       const row = worksheet.addRow(rowData);
 
       // Correctly build the hyperlink URL
-      if (user.pdfFile && user.pdfFile.filename) {
+      if (user.pdfFile && user.pdfFile.data) {
         const cell = row.getCell("cvLink");
         const serverUrl =
           process.env.VITE_BACKEND_URI ||
-          "http://localhost:5000";
+          "https://rbgform-server-1.onrender.com";
         cell.value = {
           text: "Download CV",
-          hyperlink: `${serverUrl}/uploads/${user.pdfFile.filename}`,
+          hyperlink: `${serverUrl}/api/forms/${user._id}/download-file`,
         };
         cell.font = { color: { argb: "FF0000FF" }, underline: true };
       }
@@ -933,13 +914,13 @@ const generateSingleUserExcel = async (req, res) => {
       {
         field: "CV Link",
         value:
-          user.pdfFile && user.pdfFile.filename
+          user.pdfFile && user.pdfFile.data
             ? {
                 text: "Download Resume",
                 hyperlink: `${
                   process.env.VITE_BACKEND_URI ||
-                  "https://rbgform-server-ss.onrender.com"
-                }/uploads/${user.pdfFile.filename}`,
+                  "https://rbgform-server-1.onrender.com"
+                }/api/forms/${user._id}/download-file`,
               }
             : "No CV Uploaded",
       },
@@ -998,6 +979,7 @@ module.exports = {
   getUserComments,
   updateUser,
   deleteUser,
+  uploadFile,
   downloadFile,
   generateExcel,
   addComment,
