@@ -9,6 +9,8 @@ const {
     downloadFile ,
     generateExcel,
     addComment,
+    updateComment,
+    removeComment,
     generateSingleUserExcel
 } = require('../controller/form.controller');
 const upload = require('../middleware/upload');
@@ -31,6 +33,8 @@ router.get('/:id/download-file', downloadFile);
 // This route is for exporting a SINGLE user's data
 router.get('/:id/export-excel', generateSingleUserExcel);
 router.post('/:id/comments', addComment);
+router.put('/:id/comments/:commentIndex', updateComment);
+router.delete('/:id/comments/:commentIndex', removeComment);
 router.get('/:id/comments', getUserComments);
 
 module.exports = router;

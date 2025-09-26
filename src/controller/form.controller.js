@@ -20,15 +20,6 @@ const createUser = async (req, res) => {
     const { error, value } = validateUser(req.body);
 
     if (error) {
-      // If file was uploaded but validation failed, delete the file
-      if (req.file) {
-        try {
-          await fs.unlink(req.file.path);
-        } catch (unlinkError) {
-          console.error("Error deleting uploaded file:", unlinkError);
-        }
-      }
-
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -71,15 +62,6 @@ const createUser = async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating user:", error);
-
-    // Delete uploaded file if there was an error
-    if (req.file) {
-      try {
-        await fs.unlink(req.file.path);
-      } catch (unlinkError) {
-        console.error("Error deleting uploaded file:", unlinkError);
-      }
-    }
 
     res.status(500).json({
       success: false,
@@ -399,14 +381,6 @@ const updateUser = async (req, res) => {
     const { error, value } = validateUser(req.body);
 
     if (error) {
-      if (req.file) {
-        try {
-          await fs.unlink(req.file.path);
-        } catch (unlinkError) {
-          console.error("Error deleting uploaded file:", unlinkError);
-        }
-      }
-
       return res.status(400).json({
         success: false,
         message: "Validation error",
@@ -421,14 +395,6 @@ const updateUser = async (req, res) => {
     const existingUser = await User.findById(userId);
 
     if (!existingUser) {
-      if (req.file) {
-        try {
-          await fs.unlink(req.file.path);
-        } catch (unlinkError) {
-          console.error("Error deleting uploaded file:", unlinkError);
-        }
-      }
-
       return res.status(404).json({
         success: false,
         message: "User not found",
@@ -852,6 +818,132 @@ const addComment = async (req, res) => {
   }
 };
 
+const updateComment = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const commentIndex = parseInt(req.params.commentIndex);
+
+    // Validate userId
+    if (!userId || userId === "undefined") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or missing user ID",
+      });
+    }
+
+    // Validate commentIndex
+    if (isNaN(commentIndex) || commentIndex < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid comment index",
+      });
+    }
+
+    const text = req.body.text || req.body.comment;
+    const addedBy = req.body.addedBy || "unknown";
+
+    if (!text || typeof text !== "string" || text.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Comment text is required and must be a non-empty string",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if comment exists at the index
+    if (!user.comments || !user.comments[commentIndex]) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment not found",
+      });
+    }
+
+    // Update comment
+    user.comments[commentIndex].text = text;
+    user.comments[commentIndex].addedBy = addedBy;
+    user.comments[commentIndex].date = new Date();
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Comment updated successfully",
+      data: user.comments,
+    });
+  } catch (error) {
+    console.error("Error updating comment:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+const removeComment = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const commentIndex = parseInt(req.params.commentIndex);
+
+    // Validate userId
+    if (!userId || userId === "undefined") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or missing user ID",
+      });
+    }
+
+    // Validate commentIndex
+    if (isNaN(commentIndex) || commentIndex < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid comment index",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // Check if comment exists at the index
+    if (!user.comments || !user.comments[commentIndex]) {
+      return res.status(404).json({
+        success: false,
+        message: "Comment not found",
+      });
+    }
+
+    // Remove comment
+    user.comments.splice(commentIndex, 1);
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Comment removed successfully",
+      data: user.comments,
+    });
+  } catch (error) {
+    console.error("Error removing comment:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
 // Generate Excel for a SINGLE user with a clickable CV link
 const generateSingleUserExcel = async (req, res) => {
   try {
@@ -983,5 +1075,7 @@ module.exports = {
   downloadFile,
   generateExcel,
   addComment,
+  updateComment,
+  removeComment,
   generateSingleUserExcel,
 };
