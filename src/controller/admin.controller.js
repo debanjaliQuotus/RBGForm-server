@@ -1,4 +1,5 @@
 const User = require('../models/user.model');
+const Company = require('../models/company.model');
 const emailService = require('../services/email.service');
 
 // Create new user (sub-admin or sub-user)
@@ -277,6 +278,118 @@ const getAdminStats = async (req, res) => {
   }
 };
 
+// Create company
+const createCompany = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Company name is required'
+      });
+    }
+
+    const existingCompany = await Company.findOne({ name: name.toUpperCase() });
+    if (existingCompany) {
+      return res.status(409).json({
+        success: false,
+        message: 'Company with this name already exists'
+      });
+    }
+
+    const newCompany = new Company({ name, description });
+    const savedCompany = await newCompany.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Company created successfully',
+      data: savedCompany
+    });
+
+  } catch (error) {
+    console.error('Error creating company:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Get all companies
+const getAllCompanies = async (req, res) => {
+  try {
+    const companies = await Company.find().sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      message: 'Companies retrieved successfully',
+      data: companies
+    });
+
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Get company by ID
+const getCompanyById = async (req, res) => {
+  try {
+    const company = await Company.findById(req.params.id);
+
+    if (!company) {
+      return res.status(404).json({ success: false, message: 'Company not found' });
+    }
+
+    res.json({ success: true, message: 'Company retrieved successfully', data: company });
+
+  } catch (error) {
+    console.error('Error fetching company:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Update company
+const updateCompany = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const company = await Company.findById(req.params.id);
+    if (!company) return res.status(404).json({ success: false, message: 'Company not found' });
+
+    if (name && name.toUpperCase() !== company.name) {
+      const duplicateCompany = await Company.findOne({ name: name.toUpperCase(), _id: { $ne: company._id } });
+      if (duplicateCompany) return res.status(409).json({ success: false, message: 'Another company with this name already exists' });
+      company.name = name.toUpperCase();
+    }
+
+    if (description !== undefined) company.description = description;
+
+    const updatedCompany = await company.save();
+    res.json({ success: true, message: 'Company updated successfully', data: updatedCompany });
+
+  } catch (error) {
+    console.error('Error updating company:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Delete company
+const deleteCompany = async (req, res) => {
+  try {
+    const company = await Company.findById(req.params.id);
+    if (!company) return res.status(404).json({ success: false, message: 'Company not found' });
+
+    await Company.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Company deleted successfully' });
+
+  } catch (error) {
+    console.error('Error deleting company:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 module.exports = {
   createUser,
   getAllSubAdmins,
@@ -289,5 +402,10 @@ module.exports = {
   updateSubUser,
   deleteSubAdmin,
   deleteSubUser,
-  getAdminStats
+  getAdminStats,
+  createCompany,
+  getAllCompanies,
+  getCompanyById,
+  updateCompany,
+  deleteCompany
 };

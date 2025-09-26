@@ -1,6 +1,6 @@
 const express = require('express');
 const {
-  createUser, 
+  createUser,
   getAllSubAdmins,
   getAllSubUsers,
   getSubAdminById,
@@ -11,7 +11,12 @@ const {
   updateSubUser,
   deleteSubAdmin,
   deleteSubUser,
-  getAdminStats
+  getAdminStats,
+  createCompany,
+  getAllCompanies,
+  getCompanyById,
+  updateCompany,
+  deleteCompany
 } = require('../controller/admin.controller');
 
 const router = express.Router();
@@ -34,5 +39,12 @@ router.get('/sub-users/:id', getSubUserById);
 router.post('/sub-users', createSubUser);
 router.put('/sub-users/:id', updateSubUser);
 router.delete('/sub-users/:id', deleteSubUser);
+
+// Company management routes
+router.get('/companies', getAllCompanies);
+router.get('/companies/:id', getCompanyById);
+router.post('/companies', createCompany);
+router.put('/companies/:id', updateCompany);
+router.delete('/companies/:id', deleteCompany);
 
 module.exports = router;
