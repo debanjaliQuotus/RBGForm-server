@@ -16,7 +16,17 @@ const {
   getAllCompanies,
   getCompanyById,
   updateCompany,
-  deleteCompany
+  deleteCompany,
+  getAllStates,
+  getStateById,
+  updateState,
+  deleteState,
+  createCity,
+  getAllCities,
+  getCitiesByState,
+  getCityById,
+  updateCity,
+  deleteCity
 } = require('../controller/admin.controller');
 
 const router = express.Router();
@@ -46,5 +56,19 @@ router.get('/companies/:id', getCompanyById);
 router.post('/companies', createCompany);
 router.put('/companies/:id', updateCompany);
 router.delete('/companies/:id', deleteCompany);
+
+// State management routes
+router.get('/states', getAllStates);
+router.get('/states/:id', getStateById);
+router.put('/states/:id', updateState);
+router.delete('/states/:id', deleteState);
+
+// City management routes
+router.get('/cities', getAllCities);
+router.get('/cities/state/:stateId', getCitiesByState);
+router.get('/cities/:id', getCityById);
+router.post('/cities', createCity);
+router.put('/cities/:id', updateCity);
+router.delete('/cities/:id', deleteCity);
 
 module.exports = router;

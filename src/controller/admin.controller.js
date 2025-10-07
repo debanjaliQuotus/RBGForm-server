@@ -1,5 +1,6 @@
 const User = require('../models/user.model');
 const Company = require('../models/company.model');
+const City = require('../models/city.model');
 const emailService = require('../services/email.service');
 
 // Create new user (sub-admin or sub-user)
@@ -384,6 +385,262 @@ const deleteCompany = async (req, res) => {
   }
 };
 
+// Create state
+const createState = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+
+    if (!name) {
+      return res.status(400).json({
+        success: false,
+        message: 'State name is required'
+      });
+    }
+
+    const existingState = await State.findOne({ name: name.toUpperCase() });
+    if (existingState) {
+      return res.status(409).json({
+        success: false,
+        message: 'State with this name already exists'
+      });
+    }
+
+    const newState = new State({ name, description });
+    const savedState = await newState.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'State created successfully',
+      data: savedState
+    });
+
+  } catch (error) {
+    console.error('Error creating state:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Get all states
+const getAllStates = async (req, res) => {
+  try {
+    const states = await State.find().sort({ name: 1 });
+    res.json({
+      success: true,
+      message: 'States retrieved successfully',
+      data: states
+    });
+  } catch (error) {
+    console.error('Error fetching states:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Get state by ID
+const getStateById = async (req, res) => {
+  try {
+    const state = await State.findById(req.params.id);
+
+    if (!state) {
+      return res.status(404).json({ success: false, message: 'State not found' });
+    }
+
+    res.json({ success: true, message: 'State retrieved successfully', data: state });
+
+  } catch (error) {
+    console.error('Error fetching state:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Update state
+const updateState = async (req, res) => {
+  try {
+    const { name, description } = req.body;
+    const state = await State.findById(req.params.id);
+    if (!state) return res.status(404).json({ success: false, message: 'State not found' });
+
+    if (name && name.toUpperCase() !== state.name) {
+      const duplicateState = await State.findOne({ name: name.toUpperCase(), _id: { $ne: state._id } });
+      if (duplicateState) return res.status(409).json({ success: false, message: 'Another state with this name already exists' });
+      state.name = name.toUpperCase();
+    }
+
+    if (description !== undefined) state.description = description;
+
+    const updatedState = await state.save();
+    res.json({ success: true, message: 'State updated successfully', data: updatedState });
+
+  } catch (error) {
+    console.error('Error updating state:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Delete state
+const deleteState = async (req, res) => {
+  try {
+    const state = await State.findById(req.params.id);
+    if (!state) return res.status(404).json({ success: false, message: 'State not found' });
+
+    // Check if state has cities
+    const citiesCount = await City.countDocuments({ state: req.params.id });
+    if (citiesCount > 0) {
+      return res.status(409).json({ success: false, message: 'Cannot delete state with existing cities' });
+    }
+
+    await State.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'State deleted successfully' });
+
+  } catch (error) {
+    console.error('Error deleting state:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Create city
+const createCity = async (req, res) => {
+  try {
+    // 1. Get the city name and state name from the request body.
+    // Your frontend sends the state name in a field named 'stateId'.
+    const { name, stateId: state } = req.body;
+
+    // 2. Validate that both fields were provided.
+    if (!name || !state) {
+      return res.status(400).json({
+        success: false,
+        message: 'City name and state name are required'
+      });
+    }
+
+    // 3. Create a new city document using your City model.
+    // We no longer check for a State model because it's not needed.
+    const newCity = new City({ name, state });
+    const savedCity = await newCity.save();
+
+    // 4. Send a success response.
+    res.status(201).json({
+      success: true,
+      message: 'City created successfully',
+      data: savedCity
+    });
+
+  } catch (error) {
+    console.error('Error creating city:', error);
+    
+    // This part correctly handles cases where the city already exists in that state.
+    if (error.code === 11000) {
+      res.status(409).json({
+        success: false,
+        message: 'This city already exists in the selected state'
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+};
+
+
+// Get all cities
+const getAllCities = async (req, res) => {
+  try {
+    const cities = await City.find().populate('state', 'name').sort({ name: 1 });
+    res.json({
+      success: true,
+      message: 'Cities retrieved successfully',
+      data: cities
+    });
+  } catch (error) {
+    console.error('Error fetching cities:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Get cities by state
+const getCitiesByState = async (req, res) => {
+  try {
+    const cities = await City.find({ state: req.params.stateId }).sort({ name: 1 });
+    res.json({
+      success: true,
+      message: 'Cities retrieved successfully',
+      data: cities
+    });
+  } catch (error) {
+    console.error('Error fetching cities:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Get city by ID
+const getCityById = async (req, res) => {
+  try {
+    const city = await City.findById(req.params.id).populate('state', 'name');
+
+    if (!city) {
+      return res.status(404).json({ success: false, message: 'City not found' });
+    }
+
+    res.json({ success: true, message: 'City retrieved successfully', data: city });
+
+  } catch (error) {
+    console.error('Error fetching city:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
+// Update city
+const updateCity = async (req, res) => {
+  try {
+    const { name, stateId } = req.body;
+    const city = await City.findById(req.params.id);
+    if (!city) return res.status(404).json({ success: false, message: 'City not found' });
+
+    if (stateId) {
+      const state = await State.findById(stateId);
+      if (!state) return res.status(404).json({ success: false, message: 'State not found' });
+      city.state = stateId;
+    }
+
+    if (name) city.name = name.toUpperCase();
+
+    const updatedCity = await city.save();
+    res.json({ success: true, message: 'City updated successfully', data: updatedCity });
+
+  } catch (error) {
+    console.error('Error updating city:', error);
+    if (error.code === 11000) {
+      res.status(409).json({
+        success: false,
+        message: 'City with this name already exists in the selected state'
+      });
+    } else {
+      res.status(500).json({ success: false, message: 'Internal server error' });
+    }
+  }
+};
+
+// Delete city
+const deleteCity = async (req, res) => {
+  try {
+    const city = await City.findById(req.params.id);
+    if (!city) return res.status(404).json({ success: false, message: 'City not found' });
+
+    await City.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'City deleted successfully' });
+
+  } catch (error) {
+    console.error('Error deleting city:', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+};
+
 module.exports = {
   createUser,
   getAllSubAdmins,
@@ -401,5 +658,15 @@ module.exports = {
   getAllCompanies,
   getCompanyById,
   updateCompany,
-  deleteCompany
+  deleteCompany,
+  getAllStates,
+  getStateById,
+  updateState,
+  deleteState,
+  createCity,
+  getAllCities,
+  getCitiesByState,
+  getCityById,
+  updateCity,
+  deleteCity
 };
